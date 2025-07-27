@@ -1,0 +1,5 @@
+{
+    "rust-analyzer.check.command": "check",
+    "rust-analyzer.check.allTargets": false,
+    "rust-analyzer.cargo.features": ["debug_trace_execution"],
+}
