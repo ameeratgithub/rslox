@@ -7,3 +7,6 @@ edition = "2024"
 debug_trace_execution = []
 
 [dependencies]
+
+[[example]]
+name = "basic_arithmetic"

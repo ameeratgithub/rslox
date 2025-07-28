@@ -1,4 +1,4 @@
-use crate::{
+use rlox::{
     chunk::{Chunk, OpCode},
     vm::{VM, VMError},
 };
@@ -6,12 +6,6 @@ use crate::{
 // #[cfg(feature = "debug_trace_execution")]
 // use crate::debug::Debug;
 
-// pub mod common;
-pub mod chunk;
-#[cfg(feature = "debug_trace_execution")]
-pub mod debug;
-pub mod value;
-pub mod vm;
 fn main() {
     let mut chunk = Chunk::new();
     let constant = chunk.add_constant(1.2);
