@@ -12,7 +12,7 @@ impl Debug {
         }
     }
 
-    fn dissassemble_instruction(chunk: &Chunk, offset: usize) -> usize {
+    pub fn dissassemble_instruction(chunk: &Chunk, offset: usize) -> usize {
         print!("{:04} ", offset);
 
         if offset > 0 && chunk.lines[offset] == chunk.lines[offset - 1] {
@@ -27,6 +27,11 @@ impl Debug {
             match opcode {
                 OpCode::OpReturn => Debug::simple_instruction("OpReturn", offset),
                 OpCode::OpConstant => Debug::constant_instruction("OpConstant", chunk, offset),
+                OpCode::OpNegate => Debug::simple_instruction("OpNegate", offset),
+                OpCode::OpAdd => Debug::simple_instruction("OpAdd", offset),
+                OpCode::OpSubtract => Debug::simple_instruction("OpSubtract", offset),
+                OpCode::OpMultiply => Debug::simple_instruction("OpMultiply", offset),
+                OpCode::OpDivide => Debug::simple_instruction("OpDivide", offset),
             }
         } else {
             eprintln!("Can't fetch relevant OpCode. Invalid instruction: {instruction}");

@@ -13,6 +13,11 @@ pub enum ChunkError {
 pub enum OpCode {
     OpReturn = 0,
     OpConstant = 1,
+    OpNegate = 2,
+    OpAdd = 3,
+    OpSubtract = 4,
+    OpMultiply = 5,
+    OpDivide = 6,
 }
 
 impl TryFrom<u8> for OpCode {
@@ -21,6 +26,11 @@ impl TryFrom<u8> for OpCode {
         match value {
             0 => Ok(Self::OpReturn),
             1 => Ok(Self::OpConstant),
+            2 => Ok(Self::OpNegate),
+            3 => Ok(Self::OpAdd),
+            4 => Ok(Self::OpSubtract),
+            5 => Ok(Self::OpMultiply),
+            6 => Ok(Self::OpDivide),
             _ => Err(ChunkError::InvalidOpCode(value)),
         }
     }
@@ -31,7 +41,6 @@ pub struct Chunk {
     pub constants: Vec<Value>,
     pub lines: Vec<u32>,
 }
-
 impl Chunk {
     pub fn new() -> Self {
         Self {
