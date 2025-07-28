@@ -4,7 +4,7 @@ use rlox::{
 };
 
 // #[cfg(feature = "debug_trace_execution")]
-// use crate::debug::Debug;
+// use rlox::debug::Debug;
 
 fn main() {
     let mut chunk = Chunk::new();
