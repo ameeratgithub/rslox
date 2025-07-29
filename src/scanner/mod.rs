@@ -2,6 +2,8 @@ use crate::scanner::token::{Token, TokenType};
 
 pub mod token;
 
+// todo! implement display trait
+#[derive(Debug)]
 pub enum ScannerError {
     UnexpectedCharacter { line: i32, character: char },
     UnterminatedString { line: i32 },
@@ -258,7 +260,7 @@ impl<'a> Scanner<'a> {
         Ok(self.make_token(TokenType::String))
     }
 
-    fn is_at_end(&self) -> bool {
+    pub fn is_at_end(&self) -> bool {
         self.current >= self.source.len()
     }
 

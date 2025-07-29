@@ -1,3 +1,4 @@
+// todo! implement display trait
 pub enum TokenType {
     // Single character tokens
     LeftParen,

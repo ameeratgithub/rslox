@@ -48,6 +48,7 @@ pub fn repl() {
                 break;
             }
         }
+        line.clear();
     }
 }
 

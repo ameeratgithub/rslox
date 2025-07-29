@@ -9,6 +9,7 @@ use crate::{
     vm::constants::STACK_MAX,
 };
 
+// todo! implement display trait
 pub enum VMError {
     CompileError(CompilerError),
     RuntimeError,
