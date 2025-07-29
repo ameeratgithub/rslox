@@ -1,4 +1,4 @@
-// todo! implement display trait
+#[derive(Debug)]
 pub enum TokenType {
     // Single character tokens
     LeftParen,

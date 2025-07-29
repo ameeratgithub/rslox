@@ -9,17 +9,27 @@ use crate::{
     vm::constants::STACK_MAX,
 };
 
-// todo! implement display trait
 pub enum VMError {
     CompileError(CompilerError),
     RuntimeError,
 }
 
+impl std::fmt::Display for VMError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::CompileError(e) => {
+                write!(f, "Compiler Error: {}", e)
+            }
+            Self::RuntimeError => {
+                write!(f, "Runtime Error.")
+            }
+        }
+    }
+}
 pub struct VM<'a> {
     chunk: &'a Chunk,
     ip_offset: usize,
     stack: [Value; STACK_MAX as usize],
-    // // Should it really be a pointer?
     stack_top: usize,
 }
 

@@ -1,9 +1,18 @@
 use crate::scanner::{Scanner, ScannerError};
 
-// todo! implement display trait
 #[derive(Debug)]
 pub enum CompilerError {
     ScannerError(ScannerError),
+}
+
+impl std::fmt::Display for CompilerError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::ScannerError(error) => {
+                write!(f, "{}", error)
+            }
+        }
+    }
 }
 
 pub fn compile(source: &str) -> Result<(), CompilerError> {

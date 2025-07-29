@@ -41,6 +41,10 @@ pub fn repl() {
                     continue;
                 }
 
+                if source == ":q" {
+                    break;
+                }
+
                 execute(source);
             }
             Err(e) => {

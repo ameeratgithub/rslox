@@ -15,7 +15,7 @@ fn execute(code: &str) {
     if let Err(e) = interpret(code) {
         match e {
             VMError::CompileError(e) => {
-                eprintln!("Compiler Error: {:?}", e);
+                eprintln!("{}", e);
                 process::exit(65);
             }
             VMError::RuntimeError => {

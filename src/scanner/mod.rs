@@ -2,11 +2,27 @@ use crate::scanner::token::{Token, TokenType};
 
 pub mod token;
 
-// todo! implement display trait
 #[derive(Debug)]
 pub enum ScannerError {
     UnexpectedCharacter { line: i32, character: char },
     UnterminatedString { line: i32 },
+}
+
+impl std::fmt::Display for ScannerError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ScannerError::UnexpectedCharacter { line, character } => {
+                write!(
+                    f,
+                    "[line {}] Error: Unexpected character '{}'",
+                    line, character
+                )
+            }
+            ScannerError::UnterminatedString { line } => {
+                write!(f, "[line {}] Error: Unterminated string.", line)
+            }
+        }
+    }
 }
 
 pub struct Scanner<'a> {
