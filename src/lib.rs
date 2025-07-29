@@ -1,15 +1,30 @@
+use std::process;
+
+use crate::{compiler::compile, vm::VMError};
 
 pub mod chunk;
+pub mod cli;
+pub mod compiler;
 #[cfg(feature = "debug_trace_execution")]
 pub mod debug;
+pub mod scanner;
 pub mod value;
 pub mod vm;
 
-use clap::Parser;
+fn execute(code: &str) {
+    if let Err(e) = interpret(code) {
+        match e {
+            VMError::CompileError => {
+                process::exit(65);
+            }
+            VMError::RuntimeError => {
+                process::exit(70);
+            }
+        }
+    }
+}
 
-#[derive(Parser, Debug)]
-#[command(author,version, about, long_about=None)]
-pub struct Cli {
-    #[arg(short, long, value_name = "FILE")]
-    pub file: Option<String>,
+pub fn interpret(code: &str) -> Result<(), VMError> {
+    compile(code);
+    Ok(())
 }
