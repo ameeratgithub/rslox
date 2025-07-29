@@ -47,14 +47,14 @@ pub enum TokenType {
 }
 
 pub struct Token {
-    ty: TokenType,
-    start: usize,
-    length: u32,
-    line: u32,
+    pub ty: TokenType,
+    pub start: usize,
+    pub length: u32,
+    pub line: i32,
 }
 
 impl Token {
-    pub fn new(ty: TokenType, start: usize, length: u32, line: u32) -> Self {
+    pub fn new(ty: TokenType, start: usize, length: u32, line: i32) -> Self {
         Self {
             ty,
             start,

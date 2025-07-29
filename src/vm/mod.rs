@@ -4,12 +4,13 @@ use crate::debug::Debug;
 
 use crate::{
     chunk::{Chunk, OpCode},
+    compiler::CompilerError,
     value::Value,
     vm::constants::STACK_MAX,
 };
 
 pub enum VMError {
-    CompileError,
+    CompileError(CompilerError),
     RuntimeError,
 }
 
@@ -65,8 +66,8 @@ impl<'a> VM<'a> {
     }
 
     fn binary_op(&mut self, opcode: OpCode) -> Result<(), VMError> {
-        let right_operand = self.pop().ok_or_else(|| VMError::CompileError)?;
-        let left_operand = self.pop().ok_or_else(|| VMError::CompileError)?;
+        let right_operand = self.pop().ok_or_else(|| VMError::RuntimeError)?;
+        let left_operand = self.pop().ok_or_else(|| VMError::RuntimeError)?;
 
         let result = match opcode {
             OpCode::OpAdd => left_operand + right_operand,

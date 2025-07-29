@@ -14,7 +14,8 @@ pub mod vm;
 fn execute(code: &str) {
     if let Err(e) = interpret(code) {
         match e {
-            VMError::CompileError => {
+            VMError::CompileError(e) => {
+                eprintln!("Compiler Error.");
                 process::exit(65);
             }
             VMError::RuntimeError => {
@@ -25,6 +26,6 @@ fn execute(code: &str) {
 }
 
 pub fn interpret(code: &str) -> Result<(), VMError> {
-    compile(code);
+    compile(code).map_err(|e| VMError::CompileError(e))?;
     Ok(())
 }

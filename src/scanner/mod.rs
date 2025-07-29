@@ -3,15 +3,15 @@ use crate::scanner::token::{Token, TokenType};
 pub mod token;
 
 pub enum ScannerError {
-    UnexpectedCharacter { line: u32, character: char },
-    UnterminatedString { line: u32 },
+    UnexpectedCharacter { line: i32, character: char },
+    UnterminatedString { line: i32 },
 }
 
 pub struct Scanner<'a> {
     source: &'a str,
     start: usize,
     current: usize,
-    line: u32,
+    line: i32,
 }
 
 impl<'a> Scanner<'a> {
