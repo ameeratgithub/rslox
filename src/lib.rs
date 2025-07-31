@@ -1,6 +1,9 @@
 use std::process;
 
-use crate::{compiler::compile, vm::VMError};
+use crate::{
+    chunk::Chunk,
+    vm::{VM, VMError},
+};
 
 pub mod chunk;
 pub mod cli;
@@ -26,6 +29,8 @@ fn execute(code: &str) {
 }
 
 pub fn interpret(code: &str) -> Result<(), VMError> {
-    compile(code).map_err(|e| VMError::CompileError(e))?;
+    let mut chunk = Chunk::new();
+    let mut vm = VM::new(&mut chunk);
+    vm.interpret(code)?;
     Ok(())
 }

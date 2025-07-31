@@ -41,7 +41,7 @@ pub fn repl() {
                     continue;
                 }
 
-                if source == ":q" {
+                if source == "exit" {
                     break;
                 }
 

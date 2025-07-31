@@ -34,10 +34,10 @@ fn main() {
 
     // #[cfg(feature = "debug_trace_execution")]
     // Debug::dissassemble_chunk(&chunk, "Test Chunk");
-    let mut vm = VM::new(&chunk);
-    if let Err(e) = vm.interpret() {
+    let mut vm = VM::new(&mut chunk);
+    if let Err(e) = vm.interpret("") {
         match e {
-            VMError::CompileError => eprintln!("Error: Can't compile the code"),
+            VMError::CompileError(_) => eprintln!("Error: Can't compile the code"),
             VMError::RuntimeError => eprintln!("Error: A runtime error occurred"),
         }
     }

@@ -39,7 +39,7 @@ impl TryFrom<u8> for OpCode {
 pub struct Chunk {
     pub code: Vec<u8>,
     pub constants: Vec<Value>,
-    pub lines: Vec<u32>,
+    pub lines: Vec<i32>,
 }
 impl Chunk {
     pub fn new() -> Self {
@@ -50,7 +50,7 @@ impl Chunk {
         }
     }
 
-    pub fn write_chunk(&mut self, byte: u8, line: u32) {
+    pub fn write_chunk(&mut self, byte: u8, line: i32) {
         self.code.push(byte);
         self.lines.push(line);
     }

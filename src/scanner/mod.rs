@@ -74,7 +74,6 @@ impl<'a> Scanner<'a> {
     pub fn scan_token(&mut self) -> Result<Token, ScannerError> {
         // Ignore whitespaces at the start of the token
         self.skip_whitespace();
-
         // Starting from where previous token scan left.
         // Both should be 0 when scanning first token
         self.start = self.current;
@@ -177,6 +176,8 @@ impl<'a> Scanner<'a> {
                     }
                     _ => return,
                 }
+            } else {
+                return;
             }
         }
     }
@@ -301,7 +302,7 @@ impl<'a> Scanner<'a> {
         Some(byte as char)
     }
 
-    fn advance(&mut self) -> Option<char> {
+    pub fn advance(&mut self) -> Option<char> {
         // This block supports utf8 characters, but is slower.
         {
             // let c = self.source[self.current..].chars().next()?;

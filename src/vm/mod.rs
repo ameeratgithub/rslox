@@ -4,7 +4,7 @@ use crate::debug::Debug;
 
 use crate::{
     chunk::{Chunk, OpCode},
-    compiler::CompilerError,
+    compiler::{Compiler, CompilerError},
     value::Value,
     vm::constants::STACK_MAX,
 };
@@ -27,14 +27,14 @@ impl std::fmt::Display for VMError {
     }
 }
 pub struct VM<'a> {
-    chunk: &'a Chunk,
+    chunk: &'a mut Chunk,
     ip_offset: usize,
     stack: [Value; STACK_MAX as usize],
     stack_top: usize,
 }
 
 impl<'a> VM<'a> {
-    pub fn new(chunk: &'a Chunk) -> Self {
+    pub fn new(chunk: &'a mut Chunk) -> Self {
         Self {
             chunk,
             ip_offset: 0,
@@ -43,7 +43,12 @@ impl<'a> VM<'a> {
         }
     }
 
-    pub fn interpret(&mut self) -> Result<(), VMError> {
+    pub fn interpret(&mut self, source: &'a str) -> Result<(), VMError> {
+        let mut compiler = Compiler::new(source, self.chunk);
+        // Compiler should be able to compile that code, and mutate the chunk
+        // provided. This chunk should be assigned to vm properties.
+        compiler.compile().map_err(|e| VMError::CompileError(e))?;
+
         self.run()
     }
 
