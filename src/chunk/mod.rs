@@ -1,3 +1,7 @@
+/// This module handles operation codes for the vm
+/// It's the byte representation of code for VM to execute
+
+
 use crate::value::Value;
 
 #[derive(Debug)]
@@ -10,6 +14,7 @@ pub enum ChunkError {
 /// This enum represents instructions, and each instruction should be of 1 byte, as of now, that's
 /// why this is representation, and later, casting, is important.
 #[repr(u8)]
+/// You can omit values (like 0, 1, 2), but it makes it clear and more readable what value an `OpCode` has.
 pub enum OpCode {
     OpReturn = 0,
     OpConstant = 1,
@@ -20,6 +25,8 @@ pub enum OpCode {
     OpDivide = 6,
 }
 
+/// We need to convert `u8` to `OpCode`. Implementing `TryFrom` makes sense because `u8` can
+/// have value for which OpCode doesn't exist
 impl TryFrom<u8> for OpCode {
     type Error = ChunkError;
     fn try_from(value: u8) -> Result<Self, Self::Error> {
@@ -36,12 +43,20 @@ impl TryFrom<u8> for OpCode {
     }
 }
 
+/// This actually is a data structure to handle a series of bytes
+/// Can have different fields and associated functions to store bytes
 pub struct Chunk {
+    /// Code stored on a chunk. It's the read-only part 
     pub code: Vec<u8>,
+    /// List of constants defined in the code.
     pub constants: Vec<Value>,
+    /// line number of code byte being written
     pub lines: Vec<i32>,
 }
+
+/// Implements functions for `Chunk`
 impl Chunk {
+    /// Returns fresh instance of `Chunk` struct
     pub fn new() -> Self {
         Self {
             code: vec![],
@@ -50,6 +65,7 @@ impl Chunk {
         }
     }
 
+    /// Just push byte to the code vector, alongside the line number
     pub fn write_chunk(&mut self, byte: u8, line: i32) {
         self.code.push(byte);
         self.lines.push(line);

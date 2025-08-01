@@ -2,12 +2,16 @@ use crate::scanner::token::{Token, TokenType};
 
 pub mod token;
 
+/// Represents all errors related to the scanner
 #[derive(Debug)]
 pub enum ScannerError {
+    /// Unexpected/Unrecognized character alongside the line number
     UnexpectedCharacter { line: i32, character: char },
+    /// Represents unterminated, which has no ending double quote '"', string error
     UnterminatedString { line: i32 },
 }
 
+/// Display trait implementation to print errors nicely
 impl std::fmt::Display for ScannerError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -25,14 +29,20 @@ impl std::fmt::Display for ScannerError {
     }
 }
 
+/// Data structure to scan the source code and return tokens
 pub struct Scanner<'a> {
+    /// Reference to the source code string
     source: &'a str,
+    /// Starting position of the scanner
     start: usize,
+    /// Current position of the scanner
     current: usize,
+    /// Current line number
     line: i32,
 }
 
 impl<'a> Scanner<'a> {
+    /// Returns the fresh instance of `Scanner`
     pub fn new(source: &'a str) -> Self {
         Self {
             source,
@@ -42,24 +52,35 @@ impl<'a> Scanner<'a> {
         }
     }
 
+    /// Checks if the character is alphabetical
+    /// Should start with capital or small letter or underscore
+    /// Used to check first character for identifiers or keywords
     fn is_alpha(&self, c: char) -> bool {
         c.is_alphabetic() || c == '_'
     }
 
+    /// Consumes remaining characters of a number
+    /// First digit would already been consumed when this called
     fn number(&mut self) -> Token {
+        //! Check if current character is digit. If it is, consume that character
+        //! Run until non-digit character is encountered
         while let Some(c) = self.peek()
             && c.is_ascii_digit()
         {
             self.advance();
         }
 
+        // Check if current character is a '.' and next character is a number
         if let Some(c) = self.peek()
             && c == '.'
             && let Some(ch) = self.peek_next()
             && ch.is_ascii_digit()
         {
+            // Consume the '.' character
             self.advance();
 
+            // Check the current character, and consume it if it's a digit
+            // Repeat untile non-digit character is found
             while let Some(c) = self.peek()
                 && c.is_ascii_digit()
             {
@@ -67,6 +88,7 @@ impl<'a> Scanner<'a> {
             }
         }
 
+        // Return the token of type `Number`
         self.make_token(TokenType::Number)
     }
 
@@ -142,19 +164,22 @@ impl<'a> Scanner<'a> {
         Ok(token)
     }
 
+    /// Skips/ignores whitespaces and consumes characters
     fn skip_whitespace(&mut self) {
         loop {
+            // Take a look at current character
             if let Some(c) = self.peek() {
                 match c {
+                    // Just consume characters
                     ' ' | '\r' | '\t' => {
                         self.advance();
-                        break;
                     }
+                    // Consume character and increment line number
                     '\n' => {
                         self.line += 1;
                         self.advance();
-                        break;
                     }
+                    // Potential candidate for comment in code
                     '/' => {
                         // We need `peek_next()` because we're just looking at current character, and
                         // not advancing, looking at current character and looking to match next
@@ -162,6 +187,7 @@ impl<'a> Scanner<'a> {
                         if let Some(c) = self.peek_next()
                             && c == '/'
                         {
+                            // Consume characters until a new line is found or we've reached at the end
                             while let Some(c) = self.peek()
                                 && c != '\n'
                                 && !self.is_at_end()
@@ -169,27 +195,37 @@ impl<'a> Scanner<'a> {
                                 self.advance();
                             }
                         } else {
+                            // next character is not '/', just ignore it and return
                             return;
                         }
-
-                        break;
                     }
                     _ => return,
                 }
             } else {
+                // No character found, just return from the function
                 return;
             }
         }
     }
 
+    /// Determines the type of the identifier
     fn identifier_type(&self) -> TokenType {
         // Since we've already consumed at least one character, it's safe to unwrap here
         // as `self.start` is the starting index of token
+        // We've to start from starting position of the token to identify the type
+        // because at this point, `self.current` has been reached at the end of the token
         let starting_char = self.source[self.start..].chars().next().unwrap();
         match starting_char {
+            // Checks for keyword 'and', first character has been consumed so start is 1
+            // we need to look for 2 more characters, 'nd', hence the length of 2.
+            // If match is successful, we will get the `TokenType::And` in return
+            // If match is unsuccessful, we will get the default Identifier type `TokenType::Identifier`
             'a' => self.check_keyword(1, 2, "nd", TokenType::And),
+            // Checks for keyword 'class'
             'c' => self.check_keyword(1, 4, "lass", TokenType::Class),
+            // Checks for keyword 'else'
             'e' => self.check_keyword(1, 3, "lse", TokenType::Else),
+            // Checks for different possible keywords starting with 'f'
             'f' => {
                 // It means more than 1 characters have been processed
                 if self.current - self.start > 1 {
@@ -199,21 +235,33 @@ impl<'a> Scanner<'a> {
                     // Keywords starting with 'f' can have one of 'a', 'o', 'u' as second character
                     // so, we'll try to match with pre-defined keywords.
                     match second_char {
+                        // Checks for keyword `false`
                         'a' => self.check_keyword(2, 3, "lse", TokenType::False),
+                        // Checks for keyword `for`
                         'o' => self.check_keyword(2, 1, "r", TokenType::False),
+                        // Checks for keyword `fun`
                         'u' => self.check_keyword(2, 1, "n", TokenType::False),
+                        // It's a custom Identifier
                         _ => TokenType::Identifier,
                     }
                 } else {
+                    // Not a keyword. Custom Identifier
                     TokenType::Identifier
                 }
             }
+            // Checks for keyword `if`
             'i' => self.check_keyword(1, 1, "f", TokenType::If),
+            // Checks for keyword `nil`
             'n' => self.check_keyword(1, 2, "il", TokenType::Nil),
+            // Checks for keyword `or`
             'o' => self.check_keyword(1, 1, "r", TokenType::Or),
+            // Checks for keyword `print`
             'p' => self.check_keyword(1, 4, "rint", TokenType::Print),
+            // Checks for keyword `return`
             'r' => self.check_keyword(1, 5, "eturn", TokenType::Return),
+            // Checks for keyword `super`
             's' => self.check_keyword(1, 4, "uper", TokenType::Super),
+            // Checks for multiple keywords starting with `t`
             't' => {
                 if self.current - self.start > 1 {
                     // Since more than 1 characters have been processed, it's save to unwrap second
@@ -222,29 +270,43 @@ impl<'a> Scanner<'a> {
                     // Keywords starting with 't' can have one of 'h', 'r' as second character
                     // so, we'll try to match with pre-defined keywords.
                     match second_char {
+                        // Checks for keyword `this`
                         'h' => self.check_keyword(2, 2, "is", TokenType::This),
+                        // Checks for keyword `true`
                         'r' => self.check_keyword(2, 2, "ue", TokenType::True),
+                        // No keyword found. It's custom identifier
                         _ => TokenType::Identifier,
                     }
                 } else {
+                    // No keyword found. It's custom identifier
                     TokenType::Identifier
                 }
             }
+            // Checks for keyword `var`
             'v' => self.check_keyword(1, 2, "ar", TokenType::Var),
+            // Checks for keyword `while`
             'w' => self.check_keyword(1, 4, "hile", TokenType::While),
+            // No keyword found. It's custom identifier
             _ => TokenType::Identifier,
         }
     }
 
+    /// Returns the identifier
     fn identifier(&mut self) -> Token {
+        //! Consume characters until current character is alphabetic or is a digit
+        //! Remeber this function is called when first character is either a english alphabet or
+        //! an underscore `_`, to make it valid variable name.
         while let Some(c) = self.peek() {
+            // Checks if character is valid for a variable name
             if self.is_alpha(c) || c.is_ascii_digit() {
                 self.advance();
             } else {
+                // Break the loop if character couldn't be in valid variable name
                 break;
             }
         }
 
+        // Get the proper identifier type for current identifier and make a token for it
         self.make_token(self.identifier_type())
     }
 
@@ -258,11 +320,13 @@ impl<'a> Scanner<'a> {
             // already at the end of the source.
             && !self.is_at_end()
         {
+            // This allows string to be multiline
             if let Some(c) = self.peek()
                 && c == '\n'
             {
                 self.line += 1;
             }
+            // Consome character
             self.advance();
         }
 
@@ -274,9 +338,12 @@ impl<'a> Scanner<'a> {
 
         // Consume closing '"'
         self.advance();
+
+        // Make token of type `String` and return it
         Ok(self.make_token(TokenType::String))
     }
 
+    /// Returns if `current` pointer has been reached at the end of the source code
     pub fn is_at_end(&self) -> bool {
         self.current >= self.source.len()
     }
@@ -316,16 +383,18 @@ impl<'a> Scanner<'a> {
         Some(byte as char)
     }
 
+    /// Returns true if current character is matched with expected character
     fn match_char(&mut self, expected: char) -> bool {
+        // Nothing to match, already at the end, return false
         if self.is_at_end() {
             return false;
         }
 
-        if let Some(c) = self.peek() {
-            if c != expected {
-                return false;
-            }
-            // If matches, consume character to make token
+        // Check if character is equal to expected character
+        if let Some(c) = self.peek()
+            && c == expected
+        {
+            // Consume character to make token
             self.current += 1;
             return true;
         }
@@ -333,6 +402,7 @@ impl<'a> Scanner<'a> {
         false
     }
 
+    /// Simple helper function to reduce boilerplate
     fn pick_token_type(&mut self, c: char, if_ty: TokenType, else_ty: TokenType) -> TokenType {
         if self.match_char(c) { if_ty } else { else_ty }
     }
@@ -365,6 +435,7 @@ impl<'a> Scanner<'a> {
         TokenType::Identifier
     }
 
+    /// Makes a new token and return it
     fn make_token(&self, ty: TokenType) -> Token {
         Token::new(
             ty,

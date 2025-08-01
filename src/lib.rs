@@ -14,6 +14,7 @@ pub mod scanner;
 pub mod value;
 pub mod vm;
 
+// Helper function which just logs if any errors are returned
 fn execute(code: &str) {
     if let Err(e) = interpret(code) {
         match e {
@@ -28,6 +29,8 @@ fn execute(code: &str) {
     }
 }
 
+// A separate function which returns errors. Can be helpfull when writing tests
+// to test against certain types of errors
 pub fn interpret(code: &str) -> Result<(), VMError> {
     let mut chunk = Chunk::new();
     let mut vm = VM::new(&mut chunk);
