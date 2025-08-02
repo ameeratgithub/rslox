@@ -1,10 +1,10 @@
-use rlox::{
+use rslox::{
     chunk::{Chunk, OpCode},
     vm::{VM, VMError},
 };
 
 // #[cfg(feature = "debug_trace_execution")]
-// use rlox::debug::Debug;
+// use rslox::debug::Debug;
 
 fn main() {
     let mut chunk = Chunk::new();

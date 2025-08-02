@@ -1,5 +1,5 @@
 use clap::Parser;
-use rlox::cli::{Cli, repl, run_file};
+use rslox::cli::{Cli, repl, run_file};
 
 fn main() {
     let cli = Cli::parse();

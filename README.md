@@ -1,5 +1,5 @@
 # Introduction
-This project implements a programming language, named *rlox*. It is a Rust implementation of *Lox* language explained by *Robert Nystorm* on [Crafting Interpreters](https://craftinginterpreters.com/). It's a compiled language, where compiler is responsible for generating byte code from source code and a virtual machine is responsible for executing that byte code. 
+This project implements a programming language, named *rslox*. It is a Rust implementation of *Lox* language explained by *Robert Nystorm* on [Crafting Interpreters](https://craftinginterpreters.com/). It's a compiled language, where compiler is responsible for generating byte code from source code and a virtual machine is responsible for executing that byte code. 
 
 ## Technical Details
 Its compiler is implemented as single phase compiler. There are two reasons:
