@@ -35,9 +35,11 @@ fn main() {
     // #[cfg(feature = "debug_trace_execution")]
     // Debug::dissassemble_chunk(&chunk, "Test Chunk");
     let mut vm = VM::new(&mut chunk);
-    if let Err(e) = vm.interpret("") {
+    // Because we've directly written bytecode, there is no source code to be compiled
+    // So directly call `vm.run()` instead of `vm.interpret()` 
+    if let Err(e) = vm.run() {
         match e {
-            VMError::CompileError(_) => eprintln!("Error: Can't compile the code"),
+            VMError::CompileError(e) => eprintln!("Compilation Error:{e}"),
             VMError::RuntimeError => eprintln!("Error: A runtime error occurred"),
         }
     }

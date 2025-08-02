@@ -1,7 +1,10 @@
 use crate::{compiler::{Compiler, CompilerError}, scanner::token::TokenType};
 
+/// `#[repr(u8)] means its memory layout will be equivalent to byte`
 #[repr(u8)]
 #[derive(Debug, Clone, Copy)]
+/// Order of `Precedence` variant matters. Because it will be converted to bytes and will be 
+/// incremented, order is important here.
 pub enum Precedence {
     None,
     Assignment, // =
@@ -16,6 +19,7 @@ pub enum Precedence {
     Primary,
 }
 
+/// Converts a byte to `enum Precedence` 
 impl From<u8> for Precedence {
     fn from(value: u8) -> Self {
         match value {
@@ -35,9 +39,14 @@ impl From<u8> for Precedence {
     }
 }
 
+/// This is type of pointer to the function, implemented in `Compiler` struct
 pub type ParseFn<'a> = Option<fn(&mut Compiler<'a>)->Result<(), CompilerError>>;
 
+
 #[derive(Debug, Clone, Copy)]
+/// Data structure used to store infix and prefix rules of `TokenType`. Rules are just method
+/// being executed dynamically if a specific `TokenType` has one.
+/// Each `TokenType` has a separate `ParseRule`
 pub struct ParseRule<'a> {
     pub prefix: ParseFn<'a>,
     pub infix: ParseFn<'a>,
@@ -45,12 +54,23 @@ pub struct ParseRule<'a> {
 }
 
 impl<'a> ParseRule<'a> {
+    /// Gets all the rules for every token type
+    /// We'll be accessing these rules by index, so order should be the same
+    /// as the order of TokenType variants. We could assign numbers to each
+    /// TokenType, but it looks tedious. It may change in future though.
+    /// Another considerable Option is to use HashMap to store by TokenyType, which
+    /// would be explored in future
     fn get_rules() -> [ParseRule<'a>; 40] {
         [
             // TokenType::LeftParen
             ParseRule {
+                // This token token type is responsible to start executing grouping expressions.
+                // It doesn't require another operand and should be at the start, we say that it's
+                // a prefix rule
                 prefix: Some(Compiler::grouping),
                 infix: None,
+                // Token itself shouldn't have any precedence. It's the inner expression which
+                // has precedence
                 precedence: Precedence::None,
             },
             // TokenType::RightParen
@@ -85,13 +105,16 @@ impl<'a> ParseRule<'a> {
             },
             // TokenType::Minus
             ParseRule {
+                // If it involves only one operand, it's a prefix and is unary operation
                 prefix: Some(Compiler::unary),
+                // If it involves two operands, it's infix and is a binary operation
                 infix: Some(Compiler::binary),
                 precedence: Precedence::Term,
             },
             // TokenType::Plus
             ParseRule {
                 prefix: None,
+                // Only a binary operation
                 infix: Some(Compiler::binary),
                 precedence: Precedence::Term,
             },
@@ -104,12 +127,14 @@ impl<'a> ParseRule<'a> {
             // TokenType::Slash
             ParseRule {
                 prefix: None,
+                // Only a binary operation
                 infix: Some(Compiler::binary),
                 precedence: Precedence::Factor,
             },
             // TokenType::Star
             ParseRule {
                 prefix: None,
+                // Only a binary operation
                 infix: Some(Compiler::binary),
                 precedence: Precedence::Factor,
             },
@@ -175,6 +200,8 @@ impl<'a> ParseRule<'a> {
             },
             // TokenType::Number
             ParseRule {
+                // It means it's going to start parsing a number. Number itself doesn't
+                // have any operator and operands, so it's going to be prefix rule.
                 prefix: Some(Compiler::number),
                 infix: None,
                 precedence: Precedence::None,
@@ -290,8 +317,11 @@ impl<'a> ParseRule<'a> {
         ]
     }
 
+    /// Returns rule by type of token. 
     pub fn get_parse_rule(ty: TokenType) -> ParseRule<'a> {
         let rules = Self::get_rules();
+        // Since order of types in `TokenType` enum is same as rules specified for
+        // the token type, it's safe to use type `ty` as index.
         rules[ty as usize]
     }
 }

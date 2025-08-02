@@ -142,7 +142,7 @@ impl<'a> VM<'a> {
         Ok(())
     }
 
-    fn run(&mut self) -> Result<(), VMError> {
+    pub fn run(&mut self) -> Result<(), VMError> {
         loop {
             // This blocks executes only when this debug tracing feature is enabled.
             #[cfg(feature = "debug_trace_execution")]
