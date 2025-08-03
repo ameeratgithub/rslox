@@ -32,7 +32,7 @@ impl std::fmt::Display for ScannerError {
 /// Data structure to scan the source code and return tokens
 pub struct Scanner<'a> {
     /// Reference to the source code string
-    source: &'a str,
+    pub source: &'a str,
     /// Starting position of the scanner
     start: usize,
     /// Current position of the scanner

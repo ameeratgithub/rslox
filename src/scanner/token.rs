@@ -1,5 +1,5 @@
 /// Supported characters and literals by our language.
-/// TokenType should be fixed, predictable and comparable to make implementation 
+/// TokenType should be fixed, predictable and comparable to make implementation
 /// and error handling easier
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum TokenType {
@@ -74,5 +74,10 @@ impl Token {
             length,
             line,
         }
+    }
+
+    /// Returns string form of current token
+    pub fn as_str(&self, source: &str) -> String {
+        source[self.start..self.start + self.length as usize].to_owned()
     }
 }
