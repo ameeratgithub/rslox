@@ -1,7 +1,5 @@
 /// This module handles operation codes for the vm
 /// It's the byte representation of code for VM to execute
-
-
 use crate::value::Value;
 
 #[derive(Debug)]
@@ -23,6 +21,13 @@ pub enum OpCode {
     OpSubtract = 4,
     OpMultiply = 5,
     OpDivide = 6,
+    OpNil = 7,
+    OpTrue = 8,
+    OpFalse = 9,
+    OpNot = 10,
+    OpEqual = 11,
+    OpGreater = 12,
+    OpLess = 13,
 }
 
 /// We need to convert `u8` to `OpCode`. Implementing `TryFrom` makes sense because `u8` can
@@ -38,6 +43,13 @@ impl TryFrom<u8> for OpCode {
             4 => Ok(Self::OpSubtract),
             5 => Ok(Self::OpMultiply),
             6 => Ok(Self::OpDivide),
+            7 => Ok(Self::OpNil),
+            8 => Ok(Self::OpTrue),
+            9 => Ok(Self::OpFalse),
+            10 => Ok(Self::OpNot),
+            11 => Ok(Self::OpEqual),
+            12 => Ok(Self::OpGreater),
+            13 => Ok(Self::OpLess),
             _ => Err(ChunkError::InvalidOpCode(value)),
         }
     }
@@ -46,7 +58,7 @@ impl TryFrom<u8> for OpCode {
 /// This actually is a data structure to handle a series of bytes
 /// Can have different fields and associated functions to store bytes
 pub struct Chunk {
-    /// Code stored on a chunk. It's the read-only part 
+    /// Code stored on a chunk. It's the read-only part
     pub code: Vec<u8>,
     /// List of constants defined in the code.
     pub constants: Vec<Value>,

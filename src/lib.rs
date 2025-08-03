@@ -19,10 +19,11 @@ fn execute(code: &str) {
     if let Err(e) = interpret(code) {
         match e {
             VMError::CompileError(e) => {
-                eprintln!("{}", e);
+                eprintln!("Compiler Error: {}", e);
                 process::exit(65);
             }
-            VMError::RuntimeError => {
+            VMError::RuntimeError(e) => {
+                eprintln!("Runtime Error: {e}");
                 process::exit(70);
             }
         }

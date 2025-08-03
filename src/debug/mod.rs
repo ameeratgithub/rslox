@@ -1,5 +1,4 @@
 /// Debug module to print instructions in debug_trace_execution mode
-
 use crate::chunk::{Chunk, OpCode};
 
 /// Struct doesn't have any properties
@@ -12,8 +11,8 @@ impl Debug {
 
         // Starting from 0 offset
         let mut offset = 0;
-        
-        // if offset is less than byte code length, print instruction and update the offset 
+
+        // if offset is less than byte code length, print instruction and update the offset
         while offset < chunk.code.len() {
             offset = Debug::dissassemble_instruction(chunk, offset);
         }
@@ -45,6 +44,13 @@ impl Debug {
                 OpCode::OpSubtract => Debug::simple_instruction("OpSubtract", offset),
                 OpCode::OpMultiply => Debug::simple_instruction("OpMultiply", offset),
                 OpCode::OpDivide => Debug::simple_instruction("OpDivide", offset),
+                OpCode::OpNil => Debug::simple_instruction("OpNil", offset),
+                OpCode::OpTrue => Debug::simple_instruction("OpTrue", offset),
+                OpCode::OpFalse => Debug::simple_instruction("OpFalse", offset),
+                OpCode::OpNot => Debug::simple_instruction("OpNot", offset),
+                OpCode::OpEqual => Debug::simple_instruction("OpEqual", offset),
+                OpCode::OpGreater => Debug::simple_instruction("OpGreater", offset),
+                OpCode::OpLess => Debug::simple_instruction("OpLess", offset),
             }
         } else {
             // Print invalid instruction error
@@ -66,7 +72,7 @@ impl Debug {
         offset + 2
     }
 
-    // Prints simple instruction and returns new offset 
+    // Prints simple instruction and returns new offset
     fn simple_instruction(name: &str, offset: usize) -> usize {
         println!("{name}");
         // Since simple instruction is one byte, new offset would be offset + 1

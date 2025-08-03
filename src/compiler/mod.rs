@@ -69,7 +69,9 @@ impl<'a> Compiler<'a> {
     pub fn compile(&mut self) -> Result<(), CompilerError> {
         // Consumes first token
         // Important because we look back and see previous tokens
-        self.parser.advance();
+        self.parser
+            .advance()
+            .map_err(|e| CompilerError::ParserError(e))?;
 
         // Start parsing expressions.
         self.expression()?;
@@ -101,16 +103,16 @@ impl<'a> Compiler<'a> {
                 "Expected Number, found None".to_owned(),
             )))?;
 
-        // Extract number from source code. 
+        // Extract number from source code.
         let val = &self.source[token.start..token.start + token.length as usize];
 
         // Try to parse number to the `Value`
-        let val: Value = val.parse().map_err(|e: ParseFloatError| {
+        let val: f64 = val.parse().map_err(|e: ParseFloatError| {
             CompilerError::ParserError(ParserError::TokenError(e.to_string()))
         })?;
 
         // Write this in chunk
-        self.emit_constant(val)?;
+        self.emit_constant(Value::Number(val))?;
 
         Ok(())
     }
@@ -152,10 +154,12 @@ impl<'a> Compiler<'a> {
             .ty)
     }
 
-    /// Executes instructions according to precedence. 
+    /// Executes instructions according to precedence.
     fn parse_precedence(&mut self, precedence: Precedence) -> Result<(), CompilerError> {
         // Parser already advanced one time, so this is second advance call
-        self.parser.advance();
+        self.parser
+            .advance()
+            .map_err(|e| CompilerError::ParserError(e))?;
 
         // Check if previous token has any prefix rule to
         if let Some(prefix_rule) = ParseRule::get_parse_rule(self.get_previous_token_ty()?).prefix {
@@ -167,7 +171,9 @@ impl<'a> Compiler<'a> {
                 <= ParseRule::get_parse_rule(self.get_current_token_ty()?).precedence as u8
             {
                 // Consume token to get right operand
-                self.parser.advance();
+                self.parser
+                    .advance()
+                    .map_err(|e| CompilerError::ParserError(e))?;
 
                 // It's the same operator who's precedence got compared.
                 // After calling advance, it becomes previous token
@@ -180,9 +186,8 @@ impl<'a> Compiler<'a> {
             }
         } else {
             // Token should have an infix rule
-            return Err(CompilerError::ExpressionError(
-                "Expected expression".to_owned(),
-            ));
+            let err = self.parser.error_at_previous("Expected expression.");
+            return Err(CompilerError::ParserError(err));
         }
 
         Ok(())
@@ -207,6 +212,12 @@ impl<'a> Compiler<'a> {
             TokenType::Minus => self.emit_byte(OpCode::OpSubtract as u8)?,
             TokenType::Star => self.emit_byte(OpCode::OpMultiply as u8)?,
             TokenType::Slash => self.emit_byte(OpCode::OpDivide as u8)?,
+            TokenType::BangEqual => self.emit_bytes(OpCode::OpEqual as u8, OpCode::OpNot as u8)?,
+            TokenType::EqualEqual => self.emit_byte(OpCode::OpEqual as u8)?,
+            TokenType::Greater => self.emit_byte(OpCode::OpGreater as u8)?,
+            TokenType::GreaterEqual => self.emit_bytes(OpCode::OpLess as u8, OpCode::OpNot as u8)?,
+            TokenType::Less => self.emit_byte(OpCode::OpLess as u8)?,
+            TokenType::LessEqual => self.emit_bytes(OpCode::OpGreater as u8, OpCode::OpNot as u8)?,
             // There isn't any other binary operator allowed
             _ => unreachable!(),
         }
@@ -224,6 +235,8 @@ impl<'a> Compiler<'a> {
         self.parse_precedence(Precedence::Unary)?;
 
         match operator {
+            // Writes byte code (OpNot) for bang operator,
+            TokenType::Bang => self.emit_byte(OpCode::OpNot as u8)?,
             // Writes byte code (OpNegate) for minus operator,
             TokenType::Minus => self.emit_byte(OpCode::OpNegate as u8)?,
             // There is no unary operator other than Minus, in this language
@@ -235,25 +248,38 @@ impl<'a> Compiler<'a> {
         Ok(())
     }
 
+    fn literal(&mut self) -> Result<(), CompilerError> {
+        let operator = self.get_previous_token_ty()?;
+        match operator {
+            TokenType::False => self.emit_byte(OpCode::OpFalse as u8)?,
+            TokenType::Nil => self.emit_byte(OpCode::OpNil as u8)?,
+            TokenType::True => self.emit_byte(OpCode::OpTrue as u8)?,
+            _ => unreachable!(),
+        }
+
+        Ok(())
+    }
     /// Write a constant instruction and its index/offset in constant pool of
     /// the `chunk`
     fn emit_constant(&mut self, value: Value) -> Result<(), CompilerError> {
-        let constant = self.make_constant(value);
+        let constant = self.make_constant(value)?;
         self.emit_bytes(OpCode::OpConstant as u8, constant)?;
         Ok(())
     }
 
     /// Adds constant to constant pool and returns its index
-    fn make_constant(&mut self, value: Value) -> u8 {
+    fn make_constant(&mut self, value: Value) -> Result<u8, CompilerError> {
         let constant = self.chunk.add_constant(value);
 
         // Only allows 256 constants to be stored in constant pool
         if constant > u8::MAX as usize {
-            eprintln!("Too many constants in one chunk.");
-            return 0;
+            let err = self
+                .parser
+                .error_at_previous("Too many constants in one chunk");
+            return Err(CompilerError::ParserError(err));
         }
 
-        constant as u8
+        Ok(constant as u8)
     }
 
     /// Executes when all expressions are evaluated

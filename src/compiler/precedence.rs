@@ -1,9 +1,12 @@
-use crate::{compiler::{Compiler, CompilerError}, scanner::token::TokenType};
+use crate::{
+    compiler::{Compiler, CompilerError},
+    scanner::token::TokenType,
+};
 
 /// `#[repr(u8)] means its memory layout will be equivalent to byte`
 #[repr(u8)]
 #[derive(Debug, Clone, Copy)]
-/// Order of `Precedence` variant matters. Because it will be converted to bytes and will be 
+/// Order of `Precedence` variant matters. Because it will be converted to bytes and will be
 /// incremented, order is important here.
 pub enum Precedence {
     None,
@@ -19,7 +22,7 @@ pub enum Precedence {
     Primary,
 }
 
-/// Converts a byte to `enum Precedence` 
+/// Converts a byte to `enum Precedence`
 impl From<u8> for Precedence {
     fn from(value: u8) -> Self {
         match value {
@@ -40,8 +43,7 @@ impl From<u8> for Precedence {
 }
 
 /// This is type of pointer to the function, implemented in `Compiler` struct
-pub type ParseFn<'a> = Option<fn(&mut Compiler<'a>)->Result<(), CompilerError>>;
-
+pub type ParseFn<'a> = Option<fn(&mut Compiler<'a>) -> Result<(), CompilerError>>;
 
 #[derive(Debug, Clone, Copy)]
 /// Data structure used to store infix and prefix rules of `TokenType`. Rules are just method
@@ -140,15 +142,15 @@ impl<'a> ParseRule<'a> {
             },
             // TokenType::Bang
             ParseRule {
-                prefix: None,
+                prefix: Some(Compiler::unary),
                 infix: None,
                 precedence: Precedence::None,
             },
             // TokenType::BangEqual
             ParseRule {
                 prefix: None,
-                infix: None,
-                precedence: Precedence::None,
+                infix: Some(Compiler::binary),
+                precedence: Precedence::Equality,
             },
             // TokenType::Equal
             ParseRule {
@@ -159,32 +161,32 @@ impl<'a> ParseRule<'a> {
             // TokenType::EqualEqual
             ParseRule {
                 prefix: None,
-                infix: None,
-                precedence: Precedence::None,
+                infix: Some(Compiler::binary),
+                precedence: Precedence::Equality,
             },
             // TokenType::Greater
             ParseRule {
                 prefix: None,
-                infix: None,
-                precedence: Precedence::None,
+                infix: Some(Compiler::binary),
+                precedence: Precedence::Comparison,
             },
             // TokenType::GreatorEqual
             ParseRule {
                 prefix: None,
-                infix: None,
-                precedence: Precedence::None,
+                infix: Some(Compiler::binary),
+                precedence: Precedence::Comparison,
             },
             // TokenType::Less
             ParseRule {
                 prefix: None,
-                infix: None,
-                precedence: Precedence::None,
+                infix: Some(Compiler::binary),
+                precedence: Precedence::Comparison,
             },
             // TokenType::LessEqual
             ParseRule {
                 prefix: None,
-                infix: None,
-                precedence: Precedence::None,
+                infix: Some(Compiler::binary),
+                precedence: Precedence::Comparison,
             },
             // TokenType::Identifier
             ParseRule {
@@ -226,7 +228,7 @@ impl<'a> ParseRule<'a> {
             },
             // TokenType::False
             ParseRule {
-                prefix: None,
+                prefix: Some(Compiler::literal),
                 infix: None,
                 precedence: Precedence::None,
             },
@@ -250,7 +252,7 @@ impl<'a> ParseRule<'a> {
             },
             // TokenType::Nil
             ParseRule {
-                prefix: None,
+                prefix: Some(Compiler::literal),
                 infix: None,
                 precedence: Precedence::None,
             },
@@ -286,7 +288,7 @@ impl<'a> ParseRule<'a> {
             },
             // TokenType::True
             ParseRule {
-                prefix: None,
+                prefix: Some(Compiler::literal),
                 infix: None,
                 precedence: Precedence::None,
             },
@@ -317,7 +319,7 @@ impl<'a> ParseRule<'a> {
         ]
     }
 
-    /// Returns rule by type of token. 
+    /// Returns rule by type of token.
     pub fn get_parse_rule(ty: TokenType) -> ParseRule<'a> {
         let rules = Self::get_rules();
         // Since order of types in `TokenType` enum is same as rules specified for

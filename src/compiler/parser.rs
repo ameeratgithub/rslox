@@ -29,8 +29,6 @@ pub struct Parser<'a> {
     scanner: Scanner<'a>,
     pub current: Option<Token>,
     pub previous: Option<Token>,
-    had_error: bool,
-    panic_mode: bool,
 }
 
 impl<'a> Parser<'a> {
@@ -40,14 +38,13 @@ impl<'a> Parser<'a> {
             scanner,
             current: None,
             previous: None,
-            had_error: false,
-            panic_mode: false,
         }
     }
     /// Consumes the token, keeps track of past token and current token
-    pub fn advance(&mut self) {
-        // Assigns value to `self.previous`, and `self.current` will be replaced by `None`
-        self.previous = self.current.take();
+    pub fn advance(&mut self) -> Result<(), ParserError> {
+        // Assigns value to `self.previous`, we need `self.current` if error occures, so we
+        // can't use `self.current.take()` to replace value of `self.current` by `None`
+        self.previous = self.current.clone();
 
         // If token is alright, loop breaks, because it scans on demand
         // If there's an error scanning token, it continues and display errors.
@@ -58,13 +55,12 @@ impl<'a> Parser<'a> {
                     break;
                 }
                 Err(e) => {
-                    eprintln!("{e}");
-                    // todo! revisit these properties. I, currently, don't think we need them
-                    self.had_error = true;
-                    self.panic_mode = true;
+                    return Err(self.error_at_current(&format!("{}", e)));
                 }
             }
         }
+
+        Ok(())
     }
 
     /// Utility function to conditionaly consume token if it matches with desired
@@ -74,16 +70,39 @@ impl<'a> Parser<'a> {
             "Expected token: {other_ty:?}, Found `None`"
         )))?;
 
-
         if token.ty == other_ty {
-            self.advance();
+            self.advance()?;
             return Ok(());
         }
 
-        Err(ParserError::TokenError(format!(
-            "{}, Found {:?}",
-            message.to_owned(),
-            token
-        )))
+        Err(self.error_at_current(message))
+    }
+
+    pub fn error_at_previous(&self, message: &str) -> ParserError {
+        // Safe to unwrap `previous` because value is present
+        self.construct_error(&self.previous.as_ref().unwrap(), message)
+    }
+
+    fn error_at_current(&self, message: &str) -> ParserError {
+        // Safe to unwrap `current` because value is present.
+        self.construct_error(&self.current.as_ref().unwrap(), message)
+    }
+
+    fn construct_error(&self, token: &Token, message: &str) -> ParserError {
+        let mut err_msg = String::from("");
+        err_msg.push_str(&format!("[line {}] Error", token.line));
+
+        if token.ty == TokenType::Eof {
+            err_msg.push_str(" at end");
+        } else if token.ty == TokenType::Error {
+            // todo! revisit if we really need this token type
+            // C implementation is different and that's not how we handle errors in Rust
+        } else {
+            let token_str = &self.scanner.source[token.start..token.start + token.length as usize];
+            err_msg.push_str(&format!(" at '{}'", token_str));
+        }
+
+        err_msg.push_str(&format!(": {}\n", message));
+        ParserError::TokenError(err_msg)
     }
 }
