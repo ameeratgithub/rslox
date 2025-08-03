@@ -76,6 +76,7 @@ impl Token {
         }
     }
 
+    /// Returns string form of current token
     pub fn as_str(&self, source: &str) -> String {
         source[self.start..self.start + self.length as usize].to_owned()
     }

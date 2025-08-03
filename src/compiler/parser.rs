@@ -55,6 +55,7 @@ impl<'a> Parser<'a> {
                     break;
                 }
                 Err(e) => {
+                    // Return error with proper information
                     return Err(self.error_at_current(&format!("{}", e)));
                 }
             }
@@ -75,34 +76,42 @@ impl<'a> Parser<'a> {
             return Ok(());
         }
 
+        // Return proper error message
         Err(self.error_at_current(message))
     }
 
+    /// This returns error for previous token
     pub fn error_at_previous(&self, message: &str) -> ParserError {
         // Safe to unwrap `previous` because value is present
         self.construct_error(&self.previous.as_ref().unwrap(), message)
     }
 
+    /// This returns error for current token
     fn error_at_current(&self, message: &str) -> ParserError {
         // Safe to unwrap `current` because value is present.
         self.construct_error(&self.current.as_ref().unwrap(), message)
     }
 
+    /// This method is important because it formats error nicely with line numbers
     fn construct_error(&self, token: &Token, message: &str) -> ParserError {
         let mut err_msg = String::from("");
+        // Get line information from token and add to the message
         err_msg.push_str(&format!("[line {}] Error", token.line));
 
+        // Check if we've reached at the end
         if token.ty == TokenType::Eof {
+            // Tell in the message that we've reached at the end
             err_msg.push_str(" at end");
         } else if token.ty == TokenType::Error {
             // todo! revisit if we really need this token type
             // C implementation is different and that's not how we handle errors in Rust
         } else {
-            let token_str = &self.scanner.source[token.start..token.start + token.length as usize];
-            err_msg.push_str(&format!(" at '{}'", token_str));
+            // Gets invalid/problematic token and append to the error message 
+            err_msg.push_str(&format!(" at '{}'", token.as_str(&self.scanner.source)));
         }
-
+        // Push the custom message at the end
         err_msg.push_str(&format!(": {}\n", message));
+        // Return token error with formatted message
         ParserError::TokenError(err_msg)
     }
 }
