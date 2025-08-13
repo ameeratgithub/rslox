@@ -11,8 +11,8 @@ use crate::debug::Debug;
 
 use crate::{
     chunk::{Chunk, OpCode},
-    compiler::{Compiler, CompilerError},
-    value::Value,
+    compiler::CompilerError,
+    value::{GCObject, Value},
     vm::constants::STACK_MAX,
 };
 
@@ -39,44 +39,49 @@ impl std::fmt::Display for VMError {
 /// Data structure to handle a stack based virtual machine
 pub struct VM<'a> {
     /// A mutable reference to the `Chunk`.
-    chunk: &'a mut Chunk,
+    chunk: &'a Chunk,
     /// Instruction pointer offset.
     ip_offset: usize,
     /// Stack to handle variables. Fixed stack size for simplicity, but has some limitations
     stack: [Value; STACK_MAX as usize],
     /// A pointer to check where we're on our stack. If value is 0, stack is empty.
     stack_top: usize,
+    /// A linked list to track Objects stored on heap
+    pub objects: GCObject,
 }
 
 impl<'a> VM<'a> {
     /// Returns a new instance of the VM
-    pub fn new(chunk: &'a mut Chunk) -> Self {
+    pub fn new(chunk: &'a Chunk) -> Self {
         Self {
             chunk,
             ip_offset: 0,
             // All values should be nil/empty by default
-            stack: [Value::Nil; STACK_MAX as usize],
+            stack: [const { Value::Nil }; STACK_MAX as usize],
             stack_top: 0,
+            objects: None,
         }
     }
 
     /// Compiles source code, gets bytecode from compiler, and executes that bytecode
-    pub fn interpret(&mut self, source: &'a str) -> Result<(), VMError> {
-        // It takes source code string and chunk variable. Updates the chunk variable
-        // if compilation is successful
-        let mut compiler = Compiler::new(source, self.chunk);
-        // Start compiling the code, if it returns error, just propagate the error.
-        // If successful, updates the `self.chunk` field.
-        compiler.compile().map_err(|e| VMError::CompileError(e))?;
-
+    pub fn interpret(&mut self) -> Result<(), VMError> {
         // Run the bytecode (`self.chunk`) received from compiler.
         self.run()
     }
 
     // Empties the stack and resets the top to '0'
     pub fn reset_stack(&mut self) {
-        self.stack = [Value::Nil; STACK_MAX as usize];
+        self.stack = [const { Value::Nil }; STACK_MAX as usize];
         self.stack_top = 0;
+    }
+
+    pub fn free_objects(&mut self) {
+        while let Some(obj) = self.objects {
+            unsafe {
+                self.objects = (*obj.as_ptr()).next;
+                let _ = Box::from_raw(obj.as_ptr());
+            }
+        }
     }
 
     // Push the value to stack, and increments the top
@@ -92,7 +97,7 @@ impl<'a> VM<'a> {
 
         // Returning the top value from the stak. No need to delete value,
         // just manage the stack pointer (stack_top)
-        Some(self.stack[self.stack_top])
+        Some(self.stack[self.stack_top].clone())
     }
 
     /// Reads constant from constant pool
@@ -104,7 +109,7 @@ impl<'a> VM<'a> {
         // This is not to be used in production. `constant_position` implies that there
         // would be maximum 256 constants, which should not be the case.
         // Multi-byte operations needed to be introduced to handle that
-        let constant: Value = self.chunk.constants[constant_position as usize];
+        let constant: Value = self.chunk.constants[constant_position as usize].clone();
         // increment instruction pointer by 1, because we've consumed 1 byte
         self.ip_offset += 1;
         // return the value
@@ -131,12 +136,12 @@ impl<'a> VM<'a> {
             })
             // This will get executed if value is on stack
             .and_then(|val| {
-                // We're only interested if right operand is a number
-                if val.is_number() {
+                // We're only interested if right operand is a number or a string
+                if val.is_number() || val.is_string() {
                     Ok(val)
                 } else {
                     // If right operand is not a number, return an error
-                    let err = format_args!("Expected number as right operand");
+                    let err = format_args!("Expected number or string as right operand");
                     Err(self.construct_runtime_error(err))
                 }
             })?;
@@ -150,15 +155,29 @@ impl<'a> VM<'a> {
             })
             // This will get executed if value is on stack
             .and_then(|val| {
-                // We're only interested if left operand is a number
-                if val.is_number() {
+                let operands_are_numbers = right_operand.is_number() && val.is_number();
+                let operands_are_strings = right_operand.is_string() && val.is_string();
+                // We're only interested if both operands are numbers or both are strings
+                if operands_are_numbers || (operands_are_strings && opcode == OpCode::OpAdd) {
                     Ok(val)
                 } else {
-                    // If left operand is not a number, return an error
-                    let err = format_args!("Expected number as left operand");
+                    // Invalid operation on operands, return error
+                    let err = format_args!("Expected both operands to be of same type");
                     Err(self.construct_runtime_error(err))
                 }
             })?;
+
+        // Concatinate If object is string
+        if right_operand.is_string() && left_operand.is_string() {
+            let left = left_operand.as_object_string();
+            let right = right_operand.as_object_string();
+
+            let value = Value::from_runtime_str(left + &right, self);
+            self.push(value);
+
+            // Return because our work here is done.
+            return Ok(());
+        }
 
         // Match the opcode and perform the relevant operation
         let result = match opcode {
@@ -226,7 +245,9 @@ impl<'a> VM<'a> {
                             self.construct_runtime_error(format_args!("Expected return opcode")),
                         )?;
                         // Print calculated result at the end of the execution
+                        println!("======  Result  ======");
                         println!("{}", v);
+                        println!("======================");
                         return Ok(());
                     }
                     // Read constant from the constant pool
@@ -329,7 +350,7 @@ impl<'a> VM<'a> {
     fn construct_runtime_error(&mut self, arguments: Arguments) -> VMError {
         // Instruction is one step behind the current offset, so subtracting 1
         let instruction_index = self.ip_offset.checked_sub(1).and_then(|idx| {
-            // We want to get line number from index so this check is important 
+            // We want to get line number from index so this check is important
             if idx < self.chunk.lines.len() {
                 Some(idx)
             } else {

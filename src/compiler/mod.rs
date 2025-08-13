@@ -215,9 +215,13 @@ impl<'a> Compiler<'a> {
             TokenType::BangEqual => self.emit_bytes(OpCode::OpEqual as u8, OpCode::OpNot as u8)?,
             TokenType::EqualEqual => self.emit_byte(OpCode::OpEqual as u8)?,
             TokenType::Greater => self.emit_byte(OpCode::OpGreater as u8)?,
-            TokenType::GreaterEqual => self.emit_bytes(OpCode::OpLess as u8, OpCode::OpNot as u8)?,
+            TokenType::GreaterEqual => {
+                self.emit_bytes(OpCode::OpLess as u8, OpCode::OpNot as u8)?
+            }
             TokenType::Less => self.emit_byte(OpCode::OpLess as u8)?,
-            TokenType::LessEqual => self.emit_bytes(OpCode::OpGreater as u8, OpCode::OpNot as u8)?,
+            TokenType::LessEqual => {
+                self.emit_bytes(OpCode::OpGreater as u8, OpCode::OpNot as u8)?
+            }
             // There isn't any other binary operator allowed
             _ => unreachable!(),
         }
@@ -259,6 +263,30 @@ impl<'a> Compiler<'a> {
 
         Ok(())
     }
+
+    fn string(&mut self) -> Result<(), CompilerError> {
+        let token = self
+            .parser
+            .previous
+            .as_ref()
+            .ok_or(CompilerError::ParserError(
+                self.parser.error_at_previous("Expected token"),
+            ))?;
+        // Skip the double quotes character '"'
+        let start_index = token.start + 1;
+        // Last index of token would be `length - 1`, and has ending double quotes
+        // So, also skipping ending '"'
+        let end_index = start_index + (token.length as usize - 2);
+        // String value from source code is getting copied into virtual machine
+        let str = self.source[start_index..end_index].to_owned();
+        // Create a Value object from String
+        let value = Value::from(str);
+        // Emit that value as constant
+        self.emit_constant(value)?;
+
+        Ok(())
+    }
+
     /// Write a constant instruction and its index/offset in constant pool of
     /// the `chunk`
     fn emit_constant(&mut self, value: Value) -> Result<(), CompilerError> {

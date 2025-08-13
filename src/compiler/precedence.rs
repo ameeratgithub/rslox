@@ -196,7 +196,7 @@ impl<'a> ParseRule<'a> {
             },
             // TokenType::String
             ParseRule {
-                prefix: None,
+                prefix: Some(Compiler::string),
                 infix: None,
                 precedence: Precedence::None,
             },
