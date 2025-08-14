@@ -3,6 +3,7 @@
 use crate::value::Value;
 
 #[derive(Debug)]
+/// Error thrown when invalid opcode gets detected.
 pub enum ChunkError {
     InvalidOpCode(u8),
 }
@@ -12,6 +13,7 @@ pub enum ChunkError {
 /// This enum represents instructions, and each instruction should be of 1 byte, as of now, that's
 /// why this is representation, and later, casting, is important.
 #[repr(u8)]
+#[derive(Debug, PartialEq)]
 /// You can omit values (like 0, 1, 2), but it makes it clear and more readable what value an `OpCode` has.
 pub enum OpCode {
     OpReturn = 0,

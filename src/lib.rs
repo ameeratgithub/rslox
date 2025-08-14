@@ -2,6 +2,7 @@ use std::process;
 
 use crate::{
     chunk::Chunk,
+    compiler::Compiler,
     vm::{VM, VMError},
 };
 
@@ -34,7 +35,18 @@ fn execute(code: &str) {
 // to test against certain types of errors
 pub fn interpret(code: &str) -> Result<(), VMError> {
     let mut chunk = Chunk::new();
-    let mut vm = VM::new(&mut chunk);
-    vm.interpret(code)?;
+
+    // It takes source code string and chunk variable. Updates the chunk variable
+    // if compilation is successful
+    let mut compiler = Compiler::new(code, &mut chunk);
+    // Start compiling the code, if it returns error, just propagate the error.
+    // If successful, updates the `self.chunk` field.
+    compiler.compile().map_err(|e| VMError::CompileError(e))?;
+
+    let mut vm: VM<'_> = VM::new(&chunk);
+    vm.interpret()?;
+    // Reset VM to its initial state. Frees garbage collection and resets stack.
+    vm.reset_vm();
+
     Ok(())
 }

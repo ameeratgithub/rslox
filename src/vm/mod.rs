@@ -2,7 +2,7 @@
 /// It takes source code, compiles it, gets bytecode (stored in chunk) from compiler
 /// and then execute that bytecode
 pub mod constants;
-use std::fmt::Arguments;
+use std::{fmt::Arguments, ptr::NonNull};
 
 /// A custom `feature` to enable execution tracing.
 /// When enabled, instructions are printed to console to see how bytecode is working
@@ -11,8 +11,8 @@ use crate::debug::Debug;
 
 use crate::{
     chunk::{Chunk, OpCode},
-    compiler::{Compiler, CompilerError},
-    value::Value,
+    compiler::CompilerError,
+    value::{Object, ObjectNode, Value},
     vm::constants::STACK_MAX,
 };
 
@@ -39,44 +39,102 @@ impl std::fmt::Display for VMError {
 /// Data structure to handle a stack based virtual machine
 pub struct VM<'a> {
     /// A mutable reference to the `Chunk`.
-    chunk: &'a mut Chunk,
+    chunk: &'a Chunk,
     /// Instruction pointer offset.
     ip_offset: usize,
     /// Stack to handle variables. Fixed stack size for simplicity, but has some limitations
     stack: [Value; STACK_MAX as usize],
     /// A pointer to check where we're on our stack. If value is 0, stack is empty.
     stack_top: usize,
+    /// A linked list to track Objects stored on heap, mainly used for garbage collection. Linked list is not the best data structure used for garbage collection. Just keeping it simple for now.
+    pub objects: ObjectNode,
 }
 
 impl<'a> VM<'a> {
     /// Returns a new instance of the VM
-    pub fn new(chunk: &'a mut Chunk) -> Self {
+    pub fn new(chunk: &'a Chunk) -> Self {
         Self {
             chunk,
+            // Offset from where vm would start executing.
             ip_offset: 0,
             // All values should be nil/empty by default
-            stack: [Value::Nil; STACK_MAX as usize],
+            stack: [const { Value::new_nil() }; STACK_MAX as usize],
+            // This would be one step ahead of the current element.
             stack_top: 0,
+            // No objects when vm is initialized
+            objects: None,
         }
     }
 
     /// Compiles source code, gets bytecode from compiler, and executes that bytecode
-    pub fn interpret(&mut self, source: &'a str) -> Result<(), VMError> {
-        // It takes source code string and chunk variable. Updates the chunk variable
-        // if compilation is successful
-        let mut compiler = Compiler::new(source, self.chunk);
-        // Start compiling the code, if it returns error, just propagate the error.
-        // If successful, updates the `self.chunk` field.
-        compiler.compile().map_err(|e| VMError::CompileError(e))?;
-
+    pub fn interpret(&mut self) -> Result<(), VMError> {
         // Run the bytecode (`self.chunk`) received from compiler.
         self.run()
     }
 
-    // Empties the stack and resets the top to '0'
+    pub fn reset_vm(&mut self) {
+        #[cfg(feature = "debug_trace_execution")]
+        self.display_garbage_items();
+        // Remove items from garbage collection
+        self.free_objects();
+        // Reset stack to its initial state
+        self.reset_stack();
+    }
+
+    /// Empties the stack and resets the top to '0'
     pub fn reset_stack(&mut self) {
-        self.stack = [Value::Nil; STACK_MAX as usize];
+        // All the values should be `Nil` by default
+        self.stack = [const { Value::new_nil() }; STACK_MAX as usize];
         self.stack_top = 0;
+    }
+
+    /// This method iterates over linked list and remove a node if pointer matches. Useful method when extracting a value from a raw pointer and that raw pointer needs to be dropped.
+    pub fn remove_object_pointer(&mut self, other: &NonNull<Object>) {
+        // Tracks current node, starting from head
+        let mut current = self.objects;
+        // Tracks previous node
+        let mut prev: Option<NonNull<Object>> = None;
+        // Start iterating the list, starting from head
+        while let Some(node) = current {
+            if node.eq(other) {
+                unsafe {
+                    // Get the next pointer of the current node
+                    let next = (*node.as_ptr()).next;
+                    if let Some(mut prev_node) = prev {
+                        // It isn't first node, set `prev.next` to `current.next`. It's like creating a link between nodes and removing itself from the middle
+                        (*prev_node.as_mut()).next = next;
+                    } else {
+                        // It's the first node, remove first node by setting itself to next
+                        self.objects = next;
+                    }
+                }
+                // Node removed, return now.
+                return;
+            }
+            // Match not found
+            unsafe {
+                // Set `prev` to `current`
+                prev = current;
+                // Move `current` to `next` node
+                current = (*node.as_ptr()).next;
+            }
+        }
+    }
+
+    /// Responsible for freeing the memory allocated by runtime objects, such as string
+    pub fn free_objects(&mut self) {
+        // Iterate over the list of objects
+        while let Some(obj) = self.objects {
+            // Unsafe is required to dereference the raw pointer
+            unsafe {
+                // Assign `next` node to `self.objects`
+                self.objects = (*obj.as_ptr()).next;
+                // `Box` will automatically free the memory
+                // Only free after pointing `self.objects` to `next` of current object
+                // Otherwise `self.objects` will point to freed memory
+                let _ = Box::from_raw(obj.as_ptr());
+            }
+        }
     }
 
     // Push the value to stack, and increments the top
@@ -92,7 +150,7 @@ impl<'a> VM<'a> {
 
         // Returning the top value from the stak. No need to delete value,
         // just manage the stack pointer (stack_top)
-        Some(self.stack[self.stack_top])
+        Some(self.stack[self.stack_top].clone())
     }
 
     /// Reads constant from constant pool
@@ -104,11 +162,53 @@ impl<'a> VM<'a> {
         // This is not to be used in production. `constant_position` implies that there
         // would be maximum 256 constants, which should not be the case.
         // Multi-byte operations needed to be introduced to handle that
-        let constant: Value = self.chunk.constants[constant_position as usize];
+        let constant: Value = self.chunk.constants[constant_position as usize].clone();
         // increment instruction pointer by 1, because we've consumed 1 byte
         self.ip_offset += 1;
         // return the value
         constant
+    }
+
+    /// This function concatenate strings and manage memory at runtime while doing so. If there are two literal strings in bytecode, concatenation will allocate memory for result, at runtime, and that value should be garbage collected
+    fn concatenate_strings(
+        &mut self,
+        left_operand: Value,
+        right_operand: Value,
+    ) -> Result<(), VMError> {
+        // Check if left_operand is heap allocated string
+        let left = if left_operand.is_object_string() {
+            // Get reference to the `ObjectPointer` of `left_operand`
+            let left_pointer = left_operand.as_object_ref();
+            // Remove that pointer from linked list, because `Value` is going to be extracted
+            self.remove_object_pointer(left_pointer);
+            // Extract string from the pointer
+            left_operand.as_object_string()
+        } else {
+            // It's not heap allocated string, so just extract the value
+            left_operand.as_literal_string()
+        };
+
+        // Check if right_operand is heap allocated string
+        let right = if right_operand.is_object_string() {
+            // Get reference to the `ObjectPointer` of `right_operand`
+            let right_pointer = right_operand.as_object_ref();
+            // Remove that pointer from linked list, because `Value` is going to be extracted
+            self.remove_object_pointer(right_pointer);
+            // Extract string from the pointer
+            right_operand.as_object_string()
+        } else {
+            // It's not heap allocated string, so just extract the value
+            right_operand.as_literal_string()
+        };
+
+        // Because it's a runtime operation, being executed by vm, it needs to create a value
+        // by using special functions. This is important for garbage collection.
+        let value = Value::from_runtime_str(left + &right, self)
+            .map_err(|err| self.construct_runtime_error(format_args!("{}", err)))?;
+        self.push(value);
+
+        // Return because our work here is done.
+        return Ok(());
     }
 
     // Performs the binary operation based on `opcode`.
@@ -116,7 +216,7 @@ impl<'a> VM<'a> {
     fn binary_op(&mut self, opcode: OpCode) -> Result<(), VMError> {
         // We're reading from left to right. So left operand got pushed first, then the right
         // operand got pushed. Let's say we're evaluating following expression
-        // 2 - 1
+        // `2 - 1`
         // 1. 2 got pushed -> [2]
         // 2. 1 got pushed -> [2,1]
         // 3. 1 is right operand, and will be popped first, because it's on top
@@ -131,16 +231,15 @@ impl<'a> VM<'a> {
             })
             // This will get executed if value is on stack
             .and_then(|val| {
-                // We're only interested if right operand is a number
-                if val.is_number() {
+                // We're only interested if right operand is a number or a string
+                if val.is_number() || val.is_string() {
                     Ok(val)
                 } else {
                     // If right operand is not a number, return an error
-                    let err = format_args!("Expected number as right operand");
+                    let err = format_args!("Expected number or string as right operand");
                     Err(self.construct_runtime_error(err))
                 }
             })?;
-
         let left_operand = self
             .pop()
             .ok_or_else(|| {
@@ -150,15 +249,22 @@ impl<'a> VM<'a> {
             })
             // This will get executed if value is on stack
             .and_then(|val| {
-                // We're only interested if left operand is a number
-                if val.is_number() {
+                let operands_are_numbers = right_operand.is_number() && val.is_number();
+                let operands_are_strings = right_operand.is_string() && val.is_string();
+                // We're only interested if both operands are numbers or both are strings
+                if operands_are_numbers || (operands_are_strings && opcode == OpCode::OpAdd) {
                     Ok(val)
                 } else {
-                    // If left operand is not a number, return an error
-                    let err = format_args!("Expected number as left operand");
+                    // Invalid operation on operands, return error
+                    let err = format_args!("Expected both operands to be of same type");
                     Err(self.construct_runtime_error(err))
                 }
             })?;
+
+        // Concatinate if both operands are strings
+        if right_operand.is_string() && left_operand.is_string() {
+            return self.concatenate_strings(left_operand, right_operand);
+        }
 
         // Match the opcode and perform the relevant operation
         let result = match opcode {
@@ -175,14 +281,14 @@ impl<'a> VM<'a> {
                 // We've checked that both operands are numbers, so we can safely
                 // convert them for comparison
                 let res = left_operand.to_number() > right_operand.to_number();
-                Value::Bool(res)
+                res.into()
             }
             // Checks if left < right
             OpCode::OpLess => {
                 // We've checked that both operands are numbers, so we can safely
                 // convert them for comparison
                 let res = left_operand.to_number() < right_operand.to_number();
-                Value::Bool(res)
+                res.into()
             }
             // This arm should never be matched.
             _ => unreachable!(),
@@ -221,12 +327,13 @@ impl<'a> VM<'a> {
                     // It means this is final instruction in the byte code
                     // Print the final result
                     OpCode::OpReturn => {
-                        let v = self.pop().ok_or(
+                        let v = self.pop().ok_or_else(||
                             // Return error if OpReturn code not found
-                            self.construct_runtime_error(format_args!("Expected return opcode")),
-                        )?;
+                            self.construct_runtime_error(format_args!("Expected return opcode")))?;
                         // Print calculated result at the end of the execution
+                        println!("======  Result  ======");
                         println!("{}", v);
+                        println!("======================");
                         return Ok(());
                     }
                     // Read constant from the constant pool
@@ -238,10 +345,9 @@ impl<'a> VM<'a> {
                     }
                     // Negate the top value
                     OpCode::OpNegate => {
-                        let value = self.pop().ok_or(
+                        let value = self.pop().ok_or_else(||
                             // Return error if value isn't on stack
-                            self.construct_runtime_error(format_args!("Expected an operand.")),
-                        )?;
+                            self.construct_runtime_error(format_args!("Expected an operand.")))?;
 
                         // Operand should be a number
                         if value.is_number() {
@@ -266,17 +372,17 @@ impl<'a> VM<'a> {
 
                     // Push `Nil` onto the stack
                     OpCode::OpNil => {
-                        self.push(Value::Nil);
+                        self.push(Value::new_nil());
                     }
 
                     // Push true onto the stack
                     OpCode::OpTrue => {
-                        self.push(Value::Bool(true));
+                        self.push(true.into());
                     }
 
                     // Push false onto the stack
                     OpCode::OpFalse => {
-                        self.push(Value::Bool(false));
+                        self.push(false.into());
                     }
 
                     // Handles '!' operation
@@ -317,11 +423,43 @@ impl<'a> VM<'a> {
                             self.construct_runtime_error(arguments)
                         })?;
                         // This is possible because of PartialEq trait implementation
-                        self.push(Value::Bool(a == b));
+                        self.push((a == b).into());
                     }
                 }
             }
         }
+    }
+
+    /// Show items in garbadge collection
+    #[cfg(feature = "debug_trace_execution")]
+    pub fn display_garbage_items(&mut self) {
+        println!("====== Garbage Collection Items ======");
+        if self.objects.is_some() {
+            // Temporary variable to hold objects
+            let mut head = self.objects;
+            // Execute till the end of the list
+            while let Some(obj) = head {
+                // Required to access to dereference the raw pointer
+                unsafe {
+                    // Dereference the object from raw pointer
+                    print!("{}", (*obj.as_ptr()));
+                    // Assign next object to current list
+                    head = (*obj.as_ptr()).next;
+                }
+
+                // There is a next object, show arrow to look like it's pointing to next element
+                if head.is_some() {
+                    print!(" -> ")
+                } else {
+                    // Break the line
+                    println!()
+                }
+            }
+        } else {
+            println!("-> No Item Found")
+        }
+
+        println!("======================================");
     }
 
     /// This is important because we want to display errors nicely.
@@ -329,7 +467,7 @@ impl<'a> VM<'a> {
     fn construct_runtime_error(&mut self, arguments: Arguments) -> VMError {
         // Instruction is one step behind the current offset, so subtracting 1
         let instruction_index = self.ip_offset.checked_sub(1).and_then(|idx| {
-            // We want to get line number from index so this check is important 
+            // We want to get line number from index so this check is important
             if idx < self.chunk.lines.len() {
                 Some(idx)
             } else {
@@ -357,7 +495,7 @@ impl<'a> VM<'a> {
         };
 
         // Error occured, reset stack.
-        self.reset_stack();
+        self.reset_vm();
 
         // Return proper error
         VMError::RuntimeError(message)
