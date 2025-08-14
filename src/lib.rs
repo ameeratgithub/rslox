@@ -47,25 +47,7 @@ pub fn interpret(code: &str) -> Result<(), VMError> {
     let mut vm: VM<'_> = VM::new(&chunk);
     vm.interpret()?;
 
-    // vm.free_objects();
-
-    #[cfg(feature = "debug_trace_execution")]
-    if vm.objects.is_some() {
-        println!("====== Garbage Collection Items ======");
-        while let Some(obj) = vm.objects {
-            unsafe {
-                print!("{}", (*obj.as_ptr()));
-                vm.objects = (*obj.as_ptr()).next;
-            }
-
-            if vm.objects.is_some() {
-                print!(" -> ")
-            } else {
-                println!()
-            }
-        }
-        println!("======================================");
-    }
+    vm.reset_vm();
 
     Ok(())
 }

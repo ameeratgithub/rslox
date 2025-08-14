@@ -2,7 +2,7 @@
 /// It takes source code, compiles it, gets bytecode (stored in chunk) from compiler
 /// and then execute that bytecode
 pub mod constants;
-use std::fmt::Arguments;
+use std::{fmt::Arguments, ptr::NonNull};
 
 /// A custom `feature` to enable execution tracing.
 /// When enabled, instructions are printed to console to see how bytecode is working
@@ -12,7 +12,7 @@ use crate::debug::Debug;
 use crate::{
     chunk::{Chunk, OpCode},
     compiler::CompilerError,
-    value::{GCObject, Value},
+    value::{Object, ObjectNode, Value},
     vm::constants::STACK_MAX,
 };
 
@@ -46,8 +46,8 @@ pub struct VM<'a> {
     stack: [Value; STACK_MAX as usize],
     /// A pointer to check where we're on our stack. If value is 0, stack is empty.
     stack_top: usize,
-    /// A linked list to track Objects stored on heap
-    pub objects: GCObject,
+    /// A linked list to track Objects stored on heap, mainly used for garbage collection
+    pub objects: ObjectNode,
 }
 
 impl<'a> VM<'a> {
@@ -57,8 +57,9 @@ impl<'a> VM<'a> {
             chunk,
             ip_offset: 0,
             // All values should be nil/empty by default
-            stack: [const { Value::Nil }; STACK_MAX as usize],
+            stack: [const { Value::new_nil() }; STACK_MAX as usize],
             stack_top: 0,
+            // No objects when vm is just initialized
             objects: None,
         }
     }
@@ -69,16 +70,52 @@ impl<'a> VM<'a> {
         self.run()
     }
 
-    // Empties the stack and resets the top to '0'
+    pub fn reset_vm(&mut self) {
+        #[cfg(feature = "debug_trace_execution")]
+        self.display_garbage_items();
+        // Remove items from garbage collection
+        self.free_objects();
+        // Reset stack to its initial state
+        self.reset_stack();
+    }
+
+    /// Empties the stack and resets the top to '0'
     pub fn reset_stack(&mut self) {
-        self.stack = [const { Value::Nil }; STACK_MAX as usize];
+        self.stack = [const { Value::new_nil() }; STACK_MAX as usize];
         self.stack_top = 0;
     }
 
-    pub fn free_objects(&mut self) {
+    pub fn remove_object_pointer(&mut self, other: &NonNull<Object>) {
         while let Some(obj) = self.objects {
+            if obj.eq(other) {
+                self.objects = None;
+            } else {
+                unsafe {
+                    let next = (*obj.as_ptr()).next;
+                    if let Some(ptr) = next
+                        && ptr.ne(other)
+                    {
+                        self.objects = next;
+                        break;
+                    }
+
+                    self.objects = None;
+                }
+            }
+        }
+    }
+
+    /// Responsible for freeing the memory allocated by runtime objects, such as string
+    pub fn free_objects(&mut self) {
+        // Iterate over the list of objects
+        while let Some(obj) = self.objects {
+            // Unsafe is required to dereference the raw pointer
             unsafe {
+                // Assign `next` node to `self.objects`
                 self.objects = (*obj.as_ptr()).next;
+                // `Box` will automatically free the memory
+                // Only free after pointing `self.objects` to `next` of current object
+                // Otherwise `self.objects` will point to freed memory
                 let _ = Box::from_raw(obj.as_ptr());
             }
         }
@@ -116,12 +153,44 @@ impl<'a> VM<'a> {
         constant
     }
 
+    fn concatenate_strings(
+        &mut self,
+        left_operand: Value,
+        right_operand: Value,
+    ) -> Result<(), VMError> {
+        // Convert `Value` to an `Object` of type `String`
+        let left = if left_operand.is_object_string() {
+            let left_pointer = left_operand.as_object_ref();
+            self.remove_object_pointer(left_pointer);
+            left_operand.as_object_string()
+        } else {
+            left_operand.as_literal_string()
+        };
+
+        let right = if right_operand.is_object_string() {
+            let right_pointer = right_operand.as_object_ref();
+            self.remove_object_pointer(right_pointer);
+            right_operand.as_object_string()
+        } else {
+            right_operand.as_literal_string()
+        };
+
+        // Because it's a runtime operation, being executed by vm, it needs to create a value
+        // by using special functions. This is important for garbage collection.
+        let value = Value::from_runtime_str(left + &right, self)
+            .map_err(|err| self.construct_runtime_error(format_args!("{}", err)))?;
+        self.push(value);
+
+        // Return because our work here is done.
+        return Ok(());
+    }
+
     // Performs the binary operation based on `opcode`.
     // `binary_op` should only be called when `opcode` supports binary operation.
     fn binary_op(&mut self, opcode: OpCode) -> Result<(), VMError> {
         // We're reading from left to right. So left operand got pushed first, then the right
         // operand got pushed. Let's say we're evaluating following expression
-        // 2 - 1
+        // `2 - 1`
         // 1. 2 got pushed -> [2]
         // 2. 1 got pushed -> [2,1]
         // 3. 1 is right operand, and will be popped first, because it's on top
@@ -145,7 +214,6 @@ impl<'a> VM<'a> {
                     Err(self.construct_runtime_error(err))
                 }
             })?;
-
         let left_operand = self
             .pop()
             .ok_or_else(|| {
@@ -169,14 +237,7 @@ impl<'a> VM<'a> {
 
         // Concatinate If object is string
         if right_operand.is_string() && left_operand.is_string() {
-            let left = left_operand.as_object_string();
-            let right = right_operand.as_object_string();
-
-            let value = Value::from_runtime_str(left + &right, self);
-            self.push(value);
-
-            // Return because our work here is done.
-            return Ok(());
+            return self.concatenate_strings(left_operand, right_operand);
         }
 
         // Match the opcode and perform the relevant operation
@@ -194,14 +255,14 @@ impl<'a> VM<'a> {
                 // We've checked that both operands are numbers, so we can safely
                 // convert them for comparison
                 let res = left_operand.to_number() > right_operand.to_number();
-                Value::Bool(res)
+                res.into()
             }
             // Checks if left < right
             OpCode::OpLess => {
                 // We've checked that both operands are numbers, so we can safely
                 // convert them for comparison
                 let res = left_operand.to_number() < right_operand.to_number();
-                Value::Bool(res)
+                res.into()
             }
             // This arm should never be matched.
             _ => unreachable!(),
@@ -240,10 +301,9 @@ impl<'a> VM<'a> {
                     // It means this is final instruction in the byte code
                     // Print the final result
                     OpCode::OpReturn => {
-                        let v = self.pop().ok_or(
+                        let v = self.pop().ok_or_else(||
                             // Return error if OpReturn code not found
-                            self.construct_runtime_error(format_args!("Expected return opcode")),
-                        )?;
+                            self.construct_runtime_error(format_args!("Expected return opcode")))?;
                         // Print calculated result at the end of the execution
                         println!("======  Result  ======");
                         println!("{}", v);
@@ -259,10 +319,9 @@ impl<'a> VM<'a> {
                     }
                     // Negate the top value
                     OpCode::OpNegate => {
-                        let value = self.pop().ok_or(
+                        let value = self.pop().ok_or_else(||
                             // Return error if value isn't on stack
-                            self.construct_runtime_error(format_args!("Expected an operand.")),
-                        )?;
+                            self.construct_runtime_error(format_args!("Expected an operand.")))?;
 
                         // Operand should be a number
                         if value.is_number() {
@@ -287,17 +346,17 @@ impl<'a> VM<'a> {
 
                     // Push `Nil` onto the stack
                     OpCode::OpNil => {
-                        self.push(Value::Nil);
+                        self.push(Value::new_nil());
                     }
 
                     // Push true onto the stack
                     OpCode::OpTrue => {
-                        self.push(Value::Bool(true));
+                        self.push(true.into());
                     }
 
                     // Push false onto the stack
                     OpCode::OpFalse => {
-                        self.push(Value::Bool(false));
+                        self.push(false.into());
                     }
 
                     // Handles '!' operation
@@ -338,11 +397,43 @@ impl<'a> VM<'a> {
                             self.construct_runtime_error(arguments)
                         })?;
                         // This is possible because of PartialEq trait implementation
-                        self.push(Value::Bool(a == b));
+                        self.push((a == b).into());
                     }
                 }
             }
         }
+    }
+
+    /// Show items in garbadge collection
+    #[cfg(feature = "debug_trace_execution")]
+    pub fn display_garbage_items(&mut self) {
+        println!("====== Garbage Collection Items ======");
+        if self.objects.is_some() {
+            // Temporary variable to hold objects
+            let mut head = self.objects;
+            // Execute till the end of the list
+            while let Some(obj) = head {
+                // Required to access to dereference the raw pointer
+                unsafe {
+                    // Dereference the object from raw pointer
+                    print!("{}", (*obj.as_ptr()));
+                    // Assign next object to current list
+                    head = (*obj.as_ptr()).next;
+                }
+
+                // There is a next object, show arrow to look like it's pointing to next element
+                if head.is_some() {
+                    print!(" -> ")
+                } else {
+                    // Break the line
+                    println!()
+                }
+            }
+        } else {
+            println!("-> No Item Found")
+        }
+
+        println!("======================================");
     }
 
     /// This is important because we want to display errors nicely.
@@ -378,7 +469,7 @@ impl<'a> VM<'a> {
         };
 
         // Error occured, reset stack.
-        self.reset_stack();
+        self.reset_vm();
 
         // Return proper error
         VMError::RuntimeError(message)

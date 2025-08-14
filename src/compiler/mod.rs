@@ -112,7 +112,7 @@ impl<'a> Compiler<'a> {
         })?;
 
         // Write this in chunk
-        self.emit_constant(Value::Number(val))?;
+        self.emit_constant(val.into())?;
 
         Ok(())
     }
@@ -265,13 +265,9 @@ impl<'a> Compiler<'a> {
     }
 
     fn string(&mut self) -> Result<(), CompilerError> {
-        let token = self
-            .parser
-            .previous
-            .as_ref()
-            .ok_or(CompilerError::ParserError(
-                self.parser.error_at_previous("Expected token"),
-            ))?;
+        let token = self.parser.previous.as_ref().ok_or_else(|| {
+            CompilerError::ParserError(self.parser.error_at_previous("Expected token"))
+        })?;
         // Skip the double quotes character '"'
         let start_index = token.start + 1;
         // Last index of token would be `length - 1`, and has ending double quotes
