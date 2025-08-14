@@ -26,8 +26,11 @@ impl std::fmt::Display for ParserError {
 
 /// Data structure to hold `Token`s and `Scanner` to scan tokens
 pub struct Parser<'a> {
+    /// Scanner object to scan tokens on demand
     scanner: Scanner<'a>,
+    /// Holds the current parsed token
     pub current: Option<Token>,
+    /// Holds the previously parsed token. One step behind the current token.
     pub previous: Option<Token>,
 }
 
@@ -50,6 +53,7 @@ impl<'a> Parser<'a> {
         // If there's an error scanning token, it continues and display errors.
         loop {
             match self.scanner.scan_token() {
+                // Token is valid, updated the current token
                 Ok(token) => {
                     self.current = Some(token);
                     break;
@@ -71,6 +75,7 @@ impl<'a> Parser<'a> {
             "Expected token: {other_ty:?}, Found `None`"
         )))?;
 
+        // Token matches, consume token and return early.
         if token.ty == other_ty {
             self.advance()?;
             return Ok(());

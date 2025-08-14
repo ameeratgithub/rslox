@@ -39,14 +39,13 @@ pub fn interpret(code: &str) -> Result<(), VMError> {
     // It takes source code string and chunk variable. Updates the chunk variable
     // if compilation is successful
     let mut compiler = Compiler::new(code, &mut chunk);
-
     // Start compiling the code, if it returns error, just propagate the error.
     // If successful, updates the `self.chunk` field.
     compiler.compile().map_err(|e| VMError::CompileError(e))?;
 
     let mut vm: VM<'_> = VM::new(&chunk);
     vm.interpret()?;
-
+    // Reset VM to its initial state. Frees garbage collection and resets stack.
     vm.reset_vm();
 
     Ok(())

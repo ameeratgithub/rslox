@@ -46,7 +46,7 @@ pub struct VM<'a> {
     stack: [Value; STACK_MAX as usize],
     /// A pointer to check where we're on our stack. If value is 0, stack is empty.
     stack_top: usize,
-    /// A linked list to track Objects stored on heap, mainly used for garbage collection
+    /// A linked list to track Objects stored on heap, mainly used for garbage collection. Linked list is not the best data structure used for garbage collection. Just keeping it simple for now.
     pub objects: ObjectNode,
 }
 
@@ -55,11 +55,13 @@ impl<'a> VM<'a> {
     pub fn new(chunk: &'a Chunk) -> Self {
         Self {
             chunk,
+            // Offset from where vm would start executing.
             ip_offset: 0,
             // All values should be nil/empty by default
             stack: [const { Value::new_nil() }; STACK_MAX as usize],
+            // This would be one step ahead of the current element.
             stack_top: 0,
-            // No objects when vm is just initialized
+            // No objects when vm is initialized
             objects: None,
         }
     }
@@ -81,26 +83,40 @@ impl<'a> VM<'a> {
 
     /// Empties the stack and resets the top to '0'
     pub fn reset_stack(&mut self) {
+        // All the values should be `Nil` by default
         self.stack = [const { Value::new_nil() }; STACK_MAX as usize];
         self.stack_top = 0;
     }
 
+    /// This method iterates over linked list and remove a node if pointer matches. Useful method when extracting a value from a raw pointer and that raw pointer needs to be dropped.
     pub fn remove_object_pointer(&mut self, other: &NonNull<Object>) {
-        while let Some(obj) = self.objects {
-            if obj.eq(other) {
-                self.objects = None;
-            } else {
+        // Tracks current node, starting from head
+        let mut current = self.objects;
+        // Tracks previous node
+        let mut prev: Option<NonNull<Object>> = None;
+        // Start iterating the list, starting from head
+        while let Some(node) = current {
+            if node.eq(other) {
                 unsafe {
-                    let next = (*obj.as_ptr()).next;
-                    if let Some(ptr) = next
-                        && ptr.ne(other)
-                    {
+                    // Get the next pointer of the current node
+                    let next = (*node.as_ptr()).next;
+                    if let Some(mut prev_node) = prev {
+                        // It isn't first node, set `prev.next` to `current.next`. It's like creating a link between nodes and removing itself from the middle
+                        (*prev_node.as_mut()).next = next;
+                    } else {
+                        // It's the first node, remove first node by setting itself to next
                         self.objects = next;
-                        break;
                     }
-
-                    self.objects = None;
                 }
+                // Node removed, return now.
+                return;
+            }
+            // Match not found
+            unsafe {
+                // Set `prev` to `current`
+                prev = current;
+                // Move `current` to `next` node
+                current = (*node.as_ptr()).next;
             }
         }
     }
@@ -153,25 +169,35 @@ impl<'a> VM<'a> {
         constant
     }
 
+    /// This function concatenate strings and manage memory at runtime while doing so. If there are two literal strings in bytecode, concatenation will allocate memory for result, at runtime, and that value should be garbage collected
     fn concatenate_strings(
         &mut self,
         left_operand: Value,
         right_operand: Value,
     ) -> Result<(), VMError> {
-        // Convert `Value` to an `Object` of type `String`
+        // Check if left_operand is heap allocated string
         let left = if left_operand.is_object_string() {
+            // Get reference to the `ObjectPointer` of `left_operand`
             let left_pointer = left_operand.as_object_ref();
+            // Remove that pointer from linked list, because `Value` is going to be extracted
             self.remove_object_pointer(left_pointer);
+            // Extract string from the pointer
             left_operand.as_object_string()
         } else {
+            // It's not heap allocated string, so just extract the value
             left_operand.as_literal_string()
         };
 
+        // Check if right_operand is heap allocated string
         let right = if right_operand.is_object_string() {
+            // Get reference to the `ObjectPointer` of `right_operand`
             let right_pointer = right_operand.as_object_ref();
+            // Remove that pointer from linked list, because `Value` is going to be extracted
             self.remove_object_pointer(right_pointer);
+            // Extract string from the pointer
             right_operand.as_object_string()
         } else {
+            // It's not heap allocated string, so just extract the value
             right_operand.as_literal_string()
         };
 
@@ -235,7 +261,7 @@ impl<'a> VM<'a> {
                 }
             })?;
 
-        // Concatinate If object is string
+        // Concatinate if both operands are strings
         if right_operand.is_string() && left_operand.is_string() {
             return self.concatenate_strings(left_operand, right_operand);
         }

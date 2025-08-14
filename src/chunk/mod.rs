@@ -3,6 +3,7 @@
 use crate::value::Value;
 
 #[derive(Debug)]
+/// Error thrown when invalid opcode gets detected.
 pub enum ChunkError {
     InvalidOpCode(u8),
 }

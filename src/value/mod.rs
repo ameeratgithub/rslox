@@ -10,8 +10,6 @@ use crate::vm::{VM, VMError};
 pub enum ObjectType {
     /// Stores owned pointer to the String allocated on heap
     String(Box<String>),
-    /// Temporary type, will be removed later
-    Other,
 }
 
 /// `Display` trait implementation to display `ObjectType`s nicely
@@ -22,20 +20,18 @@ impl std::fmt::Display for ObjectType {
                 // Display string values in double quotes
                 write!(f, "\"{s}\"")
             }
-            // Temporary type. Will be removed later
-            Self::Other => {
-                write!(f, "OTHER")
-            }
         }
     }
 }
 
 /// Type to store a raw pointer to `Object` stored on heap. `NonNull` ensures that raw pointer is not null and also is space efficient.
 pub type ObjectPointer = NonNull<Object>;
+
+/// Type to store reference to the Object for garbage collection
 pub type ObjectNode = Option<ObjectPointer>;
 
 #[derive(Debug, Clone, PartialEq)]
-/// Container for the `Object`
+/// Data structure to store the `ObjectType` (which owns the value) and `next` node, for garbage collection
 pub struct Object {
     /// Stores the type of the `Object` being created
     ty: ObjectType,
@@ -44,15 +40,18 @@ pub struct Object {
 }
 
 impl Object {
+    /// Returns the fresh instance of `Object`
     pub fn new(ty: ObjectType) -> Self {
         Self { ty, next: None }
     }
 
     /// All runtime objects should be created with this method. It's important for garbage collection
     pub fn with_vm(ty: ObjectType, vm: &mut VM) -> Result<ObjectPointer, VMError> {
+        // Moves the reference of head of the list to the `objects` variable. `vm.objects` will be `None` after this.
         let objects = vm.objects.take();
 
         // If `debug_trace_execution` is enabled, show what object has been added on runtime
+        // todo! see if we should add another feature for GC
         #[cfg(feature = "debug_trace_execution")]
         {
             println!("-------GC Insert---------");
@@ -60,20 +59,24 @@ impl Object {
             println!("-------------------------");
         }
 
+        // Create an object, `next` pointing to current head of the list
         let obj = Self { ty, next: objects };
+        // Allocate `Object` on heap, by using `Box`
         let boxed_obj = Box::new(obj);
-        // Allocate `Object` on heap, by using `Box`, and convert `Box` pointer into raw pointer
+        // Convert `Box` pointer into raw pointer, create a NonNull pointer from raw_pointer
         let obj_ptr = NonNull::new(Box::into_raw(boxed_obj)).ok_or(VMError::RuntimeError(
             "Can't convert object into NonNull pointer".to_owned(),
         ))?;
 
+        // Point `vm.objects` to newly added node
         vm.objects = Some(obj_ptr);
-
+        // Return the pointer
         Ok(obj_ptr)
     }
 
     /// Creates `Object` of type `String` on runtime.
     pub fn from_runtime_str(value: String, vm: &mut VM) -> Result<ObjectPointer, VMError> {
+        // Create an owned pointer to string, not object it self, and pass to `with_vm` function. This distinction is important because ObjectType::String owns the string value, but this method returns the pointer to the object created.
         Self::with_vm(ObjectType::String(Box::new(value)), vm)
     }
 }
@@ -92,6 +95,7 @@ impl std::fmt::Display for Object {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// This stores literal values, you can say copy type or values stored on the stack. String in this enum is not created at runtime, and should only be consumed by compiler to write relevant bytecode
 pub enum Literal {
     /// Represents boolean variant which also stores value
     Bool(bool),
@@ -99,7 +103,7 @@ pub enum Literal {
     Nil,
     /// Numbers are represented as `f64`
     Number(f64),
-    /// Stores string literals. Should be dropped as soon as bytecode is written
+    /// Stores string literals. Should be dropped as soon as bytecode is written. Should not be created at runtime, since it's not getting garbage collected.
     String(String),
 }
 
@@ -121,11 +125,13 @@ pub enum Value {
 }
 
 impl Value {
+    /// Creates a `Value` object from the `String`. Since it's created at runtime, it'll have `Obj` variant
     pub fn from_runtime_str(value: String, vm: &mut VM) -> Result<Value, VMError> {
         let obj_pointer = Object::from_runtime_str(value, vm)?;
         Ok(Self::Obj(obj_pointer))
     }
 
+    /// Used to generate constant default/Nil value.
     pub const fn new_nil() -> Value {
         Value::Literal(Literal::Nil)
     }
@@ -150,37 +156,39 @@ impl Value {
         matches!(self, Self::Obj(_))
     }
 
-    /// Used to invert truthy value
+    /// Used to invert the truthy value
     pub fn is_falsey(self) -> bool {
         self.is_nil() || (self.is_bool() && !(Into::<bool>::into(self)))
     }
 
-    /// Just convert `Value` instance to `f64`
+    /// Destroys the value object, because `self` is moved, and gets inner `f64`
     pub fn to_number(self) -> f64 {
         self.into()
     }
 
-    /// Just convert `Value` instance to `Object`
+    /// Destroys the value object, because `self` is moved, and gets inner `ObjectPointer`
     pub fn as_object(self) -> ObjectPointer {
         self.into()
     }
 
-    /// Just convert `Value` instance to `Object`
+    /// Returns the reference to inner `ObjectPointer`.
     pub fn as_object_ref(&self) -> &ObjectPointer {
         match self {
             Self::Obj(op) => op,
             _ => unreachable!(),
         }
     }
-
+    /// Destroys the value object, because `self` is moved, and gets the inner `String` created at runtime
     pub fn as_object_string(self) -> String {
         self.into()
     }
 
+    /// Destroys the value object, because `self` is moved, and gets the inner `String` created at compile time
     pub fn as_literal_string(self) -> String {
         self.into()
     }
 
+    /// Checks if the string is of type `Literal`, and is created at compile time
     pub fn is_literal_string(&self) -> bool {
         match self {
             Self::Literal(Literal::String(_)) => true,
@@ -188,6 +196,7 @@ impl Value {
         }
     }
 
+    /// Checks if the string is of type `Obj`, and is created at runtime
     pub fn is_object_string(&self) -> bool {
         unsafe {
             match self {
@@ -196,6 +205,8 @@ impl Value {
             }
         }
     }
+
+    /// Checks if `Value` is a string
     pub fn is_string(&self) -> bool {
         self.is_object_string() || self.is_literal_string()
     }
@@ -241,14 +252,22 @@ impl Into<ObjectPointer> for Value {
 impl Into<String> for Value {
     fn into(self) -> String {
         match self {
+            // String is create at runtime, some unsafe code is needed to handle raw pointers.
+            // Before calling `.into()`, it should be checked that value is indeed a string.
             Self::Obj(n) => unsafe {
+                // Get the raw pointer to the string
                 let raw_ptr = n.as_ptr();
+                // Convert raw pointer to the owned pointer. It's unsafe operation. It's important to extract value from the `NonNull` pointer. 
+                // --------- IMPORTANT NOTE ---------
+                // This gets the inner value from pointer and moves it to owned pointer. This will invalidate existing pointers, such as stored in `vm.objects`. Moving into owned string will require pointers to be removed manually from the list 
+                // --------- /IMPORTANT NOTE --------
                 let boxed_obj = Box::from_raw(raw_ptr);
                 match (boxed_obj).ty {
+                    // If Object is of type string, just move the string out of the box
                     ObjectType::String(s) => *s,
-                    _ => unreachable!(),
                 }
             },
+            // If string is Literal, created at compile time, just move out of the enum
             Self::Literal(Literal::String(s)) => s,
             // Can't handle errors at this level, errors are handled on compiler level
             // for detailed output
@@ -271,7 +290,6 @@ impl From<f64> for Value {
     }
 }
 
-
 /// Implements `From` trait to convert from `Object` to `Value::Obj`
 impl From<String> for Value {
     fn from(value: String) -> Self {
@@ -286,8 +304,10 @@ impl Add for Value {
     type Output = self::Value;
     fn add(self, rhs: Self) -> Self::Output {
         if self.is_number() && rhs.is_number() {
+            // Convert both operands into numbers. 
             let a: f64 = self.into();
             let b: f64 = rhs.into();
+            // Convert both numbers into value
             return (a + b).into();
         }
 
