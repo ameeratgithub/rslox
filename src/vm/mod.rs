@@ -2,7 +2,7 @@
 /// It takes source code, compiles it, gets bytecode (stored in chunk) from compiler
 /// and then execute that bytecode
 pub mod constants;
-use std::{fmt::Arguments, ptr::NonNull};
+use std::{collections::HashMap, fmt::Arguments, ptr::NonNull};
 
 /// A custom `feature` to enable execution tracing.
 /// When enabled, instructions are printed to console to see how bytecode is working
@@ -48,6 +48,7 @@ pub struct VM<'a> {
     stack_top: usize,
     /// A linked list to track Objects stored on heap, mainly used for garbage collection. Linked list is not the best data structure used for garbage collection. Just keeping it simple for now.
     pub objects: ObjectNode,
+    globals: HashMap<String, Value>,
 }
 
 impl<'a> VM<'a> {
@@ -63,6 +64,7 @@ impl<'a> VM<'a> {
             stack_top: 0,
             // No objects when vm is initialized
             objects: None,
+            globals: HashMap::new(),
         }
     }
 
@@ -325,16 +327,53 @@ impl<'a> VM<'a> {
                 // to execute instruction
                 match opcode {
                     // It means this is final instruction in the byte code
-                    // Print the final result
                     OpCode::OpReturn => {
+                        // Exit interpreter
+                        return Ok(());
+                    }
+                    OpCode::OpPop => {
+                        self.pop().ok_or_else(||
+                            // Return error if OpReturn code not found
+                            self.construct_runtime_error(format_args!("Expected value on the stack")))?;
+                    }
+                    OpCode::OpPrint => {
                         let v = self.pop().ok_or_else(||
                             // Return error if OpReturn code not found
-                            self.construct_runtime_error(format_args!("Expected return opcode")))?;
-                        // Print calculated result at the end of the execution
-                        println!("======  Result  ======");
+                            self.construct_runtime_error(format_args!("Expected value on the stack")))?;
                         println!("{}", v);
-                        println!("======================");
-                        return Ok(());
+                    }
+                    OpCode::OpDefineGlobal => {
+                        let name = self.read_constant().as_literal_string();
+                        let value= self.pop().ok_or_else(||
+                            // Return error if OpReturn code not found
+                            self.construct_runtime_error(format_args!("Expected value on the stack")))?;
+                        self.globals.insert(name, value);
+                    }
+                    OpCode::OpGetGlobal => {
+                        let name = self.read_constant().as_literal_string();
+
+                        let value = self.globals.get(&name).cloned().ok_or_else(|| {
+                            self.construct_runtime_error(format_args!(
+                                "Undefined variable '{name}'"
+                            ))
+                        })?;
+
+                        self.push(value);
+                    }
+                    OpCode::OpSetGlobal => {
+                        let name = self.read_constant().as_literal_string();
+                        let value_index = self.stack_top.checked_sub(1).ok_or_else(|| {
+                            self.construct_runtime_error(format_args!("Expected value on stack"))
+                        })?;
+
+                        let value = self.stack[value_index].clone();
+                        if !self.globals.contains_key(&name) {
+                            return Err(self.construct_runtime_error(format_args!(
+                                "Undefined variable '{}'",
+                                name
+                            )));
+                        }
+                        self.globals.insert(name, value);
                     }
                     // Read constant from the constant pool
                     OpCode::OpConstant => {

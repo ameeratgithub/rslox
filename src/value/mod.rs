@@ -257,9 +257,9 @@ impl Into<String> for Value {
             Self::Obj(n) => unsafe {
                 // Get the raw pointer to the string
                 let raw_ptr = n.as_ptr();
-                // Convert raw pointer to the owned pointer. It's unsafe operation. It's important to extract value from the `NonNull` pointer. 
+                // Convert raw pointer to the owned pointer. It's unsafe operation. It's important to extract value from the `NonNull` pointer.
                 // --------- IMPORTANT NOTE ---------
-                // This gets the inner value from pointer and moves it to owned pointer. This will invalidate existing pointers, such as stored in `vm.objects`. Moving into owned string will require pointers to be removed manually from the list 
+                // This gets the inner value from pointer and moves it to owned pointer. This will invalidate existing pointers, such as stored in `vm.objects`. Moving into owned string will require pointers to be removed manually from the list
                 // --------- /IMPORTANT NOTE --------
                 let boxed_obj = Box::from_raw(raw_ptr);
                 match (boxed_obj).ty {
@@ -304,7 +304,7 @@ impl Add for Value {
     type Output = self::Value;
     fn add(self, rhs: Self) -> Self::Output {
         if self.is_number() && rhs.is_number() {
-            // Convert both operands into numbers. 
+            // Convert both operands into numbers.
             let a: f64 = self.into();
             let b: f64 = rhs.into();
             // Convert both numbers into value
