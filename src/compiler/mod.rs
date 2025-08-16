@@ -78,8 +78,9 @@ impl<'a> Compiler<'a> {
         self.parser
             .advance()
             .map_err(|e| CompilerError::ParserError(e))?;
-
-        while !self.match_ty(TokenType::Eof)? {
+        // Iterate til the end of the file. If current token is `Eof`, loop will end.
+        while !self.match_curr_ty(TokenType::Eof)? {
+            // Process statements
             self.declaration()?;
         }
 
@@ -88,54 +89,68 @@ impl<'a> Compiler<'a> {
         Ok(())
     }
 
+    /// Responsible to handle all top level statements and declarations
     fn declaration(&mut self) -> Result<(), CompilerError> {
-        if self.match_ty(TokenType::Var)? {
+        // If current token type is var, emit bytecode for variable declaration, otherwise proceed with other types of statements
+        if self.match_curr_ty(TokenType::Var)? {
+            // If token is variable declaration, generate bytecode to declare the variable
             self.var_declaration()?;
         } else {
+            // Generate bytecode to process the statement
             self.statement()?;
         }
 
         Ok(())
     }
 
+    /// Generates bytecode to declare a variable
     fn var_declaration(&mut self) -> Result<(), CompilerError> {
+        // Get the index of variable name, stored in constant pool
         let global = self.parse_variable("Expected variable name")?;
-
-        if self.match_ty(TokenType::Equal)? {
+        if self.match_curr_ty(TokenType::Equal)? {
+            // Current token is equal, evaluate the expression on the right hand side
             self.expression()?;
         } else {
+            // No value has been assigned to the variable. Assign `Nil` by default.
             self.emit_byte(OpCode::OpNil as u8)?;
         }
-
+        // Variable declaration and initialization has been parsed. Consume ';' from the end.
         self.parser
             .consume(TokenType::Semicolon, "Expect ';'")
             .map_err(|e| CompilerError::ParserError(e))?;
 
+        // Define global variable
         self.define_variable(global)?;
 
         Ok(())
     }
 
+    /// Parses variable and generates bytecode for variable name, returns variable name's index of constant pool
     fn parse_variable(&mut self, message: &str) -> Result<u8, CompilerError> {
+        // Identifier, variable name in this case, would be consumed.
         self.parser
             .consume(TokenType::Identifier, message)
             .map_err(|e| CompilerError::ParserError(e))?;
-
+        // After consumption, variable name is in previous token
         let prev_token = self.parser.previous.clone().ok_or_else(|| {
             CompilerError::ParserError(ParserError::TokenError(
-                "Expected Previous token".to_owned(),
+                "Expected variable name token".to_owned(),
             ))
         })?;
 
+        // Generate bytecode for identifier token
         self.identifier_constant(&prev_token)
     }
 
+    /// Writes bytecode to define global variable
     fn define_variable(&mut self, global: u8) -> Result<(), CompilerError> {
+        // Emits opcode and index of global variable
         self.emit_bytes(OpCode::OpDefineGlobal as u8, global)
     }
 
+    /// Evaluates statements
     fn statement(&mut self) -> Result<(), CompilerError> {
-        if self.match_ty(TokenType::Print)? {
+        if self.match_curr_ty(TokenType::Print)? {
             self.print_statement()?;
         } else {
             self.expression_statement()?;
@@ -143,11 +158,15 @@ impl<'a> Compiler<'a> {
         Ok(())
     }
 
+    /// Evaluates expression statements. Result of expression statement is discarded at the end of the evaluation. These statements are executed for their side effects, not their produced results.
     fn expression_statement(&mut self) -> Result<(), CompilerError> {
+        // Evaluate the expression
         self.expression()?;
+        // Consume the ';' from the end of the expression
         self.parser
             .consume(TokenType::Semicolon, "Expect ';' after expression.")
             .map_err(|e| CompilerError::ParserError(e))?;
+        // Discard the result, because it's not needed.
         self.emit_byte(OpCode::OpPop as u8)?;
         Ok(())
     }
@@ -183,8 +202,7 @@ impl<'a> Compiler<'a> {
     }
 
     fn grouping(&mut self, _: bool) -> Result<(), CompilerError> {
-        // Initial '(' has already been consumed, so next we have to evaluate inner
-        // expression.
+        // Initial '(' has already been consumed, so next we have to evaluate inner expression.
         // Recursive call to evaluate the inner expression
         self.expression()?;
 
@@ -230,8 +248,9 @@ impl<'a> Compiler<'a> {
 
         // Check if previous token has any prefix rule
         if let Some(prefix_rule) = ParseRule::get_parse_rule(self.get_previous_token_ty()?).prefix {
-            // Prefix rule in an expression gets execute first
+            // `can_assign` is used in `prefix_rule` of variables. It is being passed to other rules, infix and prefix, as well but it's being ignored there. This rule should be executed with `can_assign=true` when a variable is declared AND initialized. If it's not initialized, there's no assignment (`TokenType::Equal`) operator, and expression method shouldn't be called.   
             let can_assign = precedence as u8 <= Precedence::Assignment as u8;
+            // Prefix rule in an expression gets executed first
             prefix_rule(self, can_assign)?;
 
             // Repeat while precedence is lower than current token
@@ -252,7 +271,8 @@ impl<'a> Compiler<'a> {
                     infix_rule(self, can_assign)?;
                 }
 
-                if can_assign && self.match_ty(TokenType::Equal)? {
+                // After the infix rule, like expression `a * b`, there shouldn't be any equal sign or `can_assign` should be false. This throws error when we right something like `a * b = c + d;` 
+                if can_assign && self.match_curr_ty(TokenType::Equal)? {
                     return Err(CompilerError::ExpressionError(
                         "Invalid assignment target".to_owned(),
                     ));
@@ -358,6 +378,7 @@ impl<'a> Compiler<'a> {
         Ok(())
     }
 
+    /// Evaluates the variable declaration and initialization
     fn variable(&mut self, can_assign: bool) -> Result<(), CompilerError> {
         let prev_token = self
             .parser
@@ -372,46 +393,61 @@ impl<'a> Compiler<'a> {
     }
 
     fn named_variable(&mut self, name: &Token, can_assign: bool) -> Result<(), CompilerError> {
+        // Generate the bytecode for identifier
         let arg = self.identifier_constant(&name)?;
 
-        if can_assign && self.match_ty(TokenType::Equal)? {
+        if can_assign && self.match_curr_ty(TokenType::Equal)? {
+            // Current variable can assign, and current token is `Equal`, evaluate the expression on the right
             self.expression()?;
-            self.emit_bytes(OpCode::OpSetGlobal as u8, arg)?;
+            // Emit the OpCode to set global variable, alongside the variable name index.
+            self.emit_bytes(OpCode::OpSetGlobal as u8, arg)
+        } else {
+            // Can't assign, or current token is not `Equal`, parse it as reading the global variable
+            self.emit_bytes(OpCode::OpGetGlobal as u8, arg)
         }
-
-        self.emit_bytes(OpCode::OpGetGlobal as u8, arg)
     }
 
+    /// Generates byte code for `print` statement
     fn print_statement(&mut self) -> Result<(), CompilerError> {
+        // Print statement has been consumed. Just parse the expression
         self.expression()?;
+        // Consume the ';' from the end of the statement
         self.parser
             .consume(TokenType::Semicolon, "Expected ';' after value.")
             .map_err(|e| CompilerError::ParserError(e))?;
+        // Emit opcode for print
         self.emit_byte(OpCode::OpPrint as u8)?;
         Ok(())
     }
 
-    fn match_ty(&mut self, ty: TokenType) -> Result<bool, CompilerError> {
-        if !self.check(ty) {
+    /// Consume token if current token matches, and returns true. Otherwise returns false
+    fn match_curr_ty(&mut self, ty: TokenType) -> Result<bool, CompilerError> {
+        if !self.check_current(ty) {
+            // Token doesn't match, return false
             return Ok(false);
         }
+        // Token matches, consume token
         self.parser
             .advance()
             .map_err(|e| CompilerError::ParserError(e))?;
         Ok(true)
     }
 
-    fn check(&self, ty: TokenType) -> bool {
+    /// Checks if current token matches with desired token
+    fn check_current(&self, ty: TokenType) -> bool {
         if let Some(token) = &self.parser.current {
             return token.ty == ty;
         }
         false
     }
 
+    /// Gets the variable name from source code and adds that name into constant pool of bytecode
     fn identifier_constant(&mut self, name: &Token) -> Result<u8, CompilerError> {
+        // Get name of the variable from source code and store as a string
         let name = name.as_str(self.source);
-        let constant = self.make_constant(name.into())?;
-        Ok(constant)
+        // Make constant from variable name and get the index
+        let constant_index = self.make_constant(name.into())?;
+        Ok(constant_index)
     }
 
     /// Write a constant instruction and its index/offset in constant pool of the `chunk`

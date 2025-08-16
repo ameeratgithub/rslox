@@ -48,6 +48,7 @@ pub struct VM<'a> {
     stack_top: usize,
     /// A linked list to track Objects stored on heap, mainly used for garbage collection. Linked list is not the best data structure used for garbage collection. Just keeping it simple for now.
     pub objects: ObjectNode,
+    /// A Datastructure, also known as HashTable, to store global variables for faster insertion and lookup.
     globals: HashMap<String, Value>,
 }
 
@@ -64,6 +65,7 @@ impl<'a> VM<'a> {
             stack_top: 0,
             // No objects when vm is initialized
             objects: None,
+            // No global variables when vm is initialized.
             globals: HashMap::new(),
         }
     }
@@ -331,48 +333,62 @@ impl<'a> VM<'a> {
                         // Exit interpreter
                         return Ok(());
                     }
+                    // Usually used for expression statements. These statements may produce a result but this result will be popped because expression statements are only used for side effects.
                     OpCode::OpPop => {
                         self.pop().ok_or_else(||
-                            // Return error if OpReturn code not found
+                            // Return error if value on stack is not found
                             self.construct_runtime_error(format_args!("Expected value on the stack")))?;
                     }
                     OpCode::OpPrint => {
                         let v = self.pop().ok_or_else(||
-                            // Return error if OpReturn code not found
+                            // Return error if value on stack is not found
                             self.construct_runtime_error(format_args!("Expected value on the stack")))?;
                         println!("{}", v);
                     }
+                    // Define a global variable and insert into `HashMap`
                     OpCode::OpDefineGlobal => {
+                        // Read the variable name from bytecode and convert it to literal string
                         let name = self.read_constant().as_literal_string();
+                        // If variable is not initilized, default value stored on stack should be `Nil`. In both cases, we're expecting value on the stack.
                         let value= self.pop().ok_or_else(||
-                            // Return error if OpReturn code not found
+                            // Return error if value on stack is not found
                             self.construct_runtime_error(format_args!("Expected value on the stack")))?;
+                        // Insert variable's name and value into `HashMap`
                         self.globals.insert(name, value);
                     }
+                    // Gets the value of variable and pushes onto the stack
                     OpCode::OpGetGlobal => {
+                        // Read the variable name from bytecode and convert it to literal string
                         let name = self.read_constant().as_literal_string();
-
+                        // Get the global variable from `HashMap`
                         let value = self.globals.get(&name).cloned().ok_or_else(|| {
+                            // Variable doesn't exist. Return an error.
                             self.construct_runtime_error(format_args!(
                                 "Undefined variable '{name}'"
                             ))
                         })?;
-
+                        // Variable exists, push value on the stack for later use.
                         self.push(value);
                     }
+                    // Sets value to already declared global variable
                     OpCode::OpSetGlobal => {
+                        // Read the variable name from bytecode and convert it to literal string
                         let name = self.read_constant().as_literal_string();
+                        // Check for underflow. If `stack_top` is less than zero after subtraction, return error
                         let value_index = self.stack_top.checked_sub(1).ok_or_else(|| {
                             self.construct_runtime_error(format_args!("Expected value on stack"))
                         })?;
-
+                        // Clone value from the stack. We just want to store it in HashMap, so no need to pop or replace value.
                         let value = self.stack[value_index].clone();
+                        // Check whether variable is defined or not
                         if !self.globals.contains_key(&name) {
+                            // Variable has not been defined, return error.
                             return Err(self.construct_runtime_error(format_args!(
                                 "Undefined variable '{}'",
                                 name
                             )));
                         }
+                        // Variable has been defined. Update it's value
                         self.globals.insert(name, value);
                     }
                     // Read constant from the constant pool

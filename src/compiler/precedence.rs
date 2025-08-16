@@ -42,7 +42,7 @@ impl From<u8> for Precedence {
     }
 }
 
-/// This is type of pointer to the function, implemented in `Compiler` struct
+/// This is type of pointer to a parsing function, implemented in `Compiler` struct
 pub type ParseFn<'a> = Option<fn(&mut Compiler<'a>, bool) -> Result<(), CompilerError>>;
 
 #[derive(Debug, Clone, Copy)]
