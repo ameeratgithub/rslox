@@ -42,8 +42,8 @@ impl From<u8> for Precedence {
     }
 }
 
-/// This is type of pointer to the function, implemented in `Compiler` struct
-pub type ParseFn<'a> = Option<fn(&mut Compiler<'a>) -> Result<(), CompilerError>>;
+/// This is type of pointer to a parsing function, implemented in `Compiler` struct
+pub type ParseFn<'a> = Option<fn(&mut Compiler<'a>, bool) -> Result<(), CompilerError>>;
 
 #[derive(Debug, Clone, Copy)]
 /// Data structure used to store infix and prefix rules of `TokenType`. Rules are just method
@@ -190,7 +190,7 @@ impl<'a> ParseRule<'a> {
             },
             // TokenType::Identifier
             ParseRule {
-                prefix: None,
+                prefix: Some(Compiler::variable),
                 infix: None,
                 precedence: Precedence::None,
             },

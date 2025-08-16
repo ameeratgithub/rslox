@@ -33,7 +33,6 @@ impl Debug {
 
         // First byte of code is consumed here.
         let instruction = chunk.code[offset];
-
         // Convert u8 to OpCode
         if let Ok(opcode) = OpCode::try_from(instruction) {
             match opcode {
@@ -51,6 +50,11 @@ impl Debug {
                 OpCode::OpEqual => Debug::simple_instruction("OpEqual", offset),
                 OpCode::OpGreater => Debug::simple_instruction("OpGreater", offset),
                 OpCode::OpLess => Debug::simple_instruction("OpLess", offset),
+                OpCode::OpPrint => Debug::simple_instruction("OpPrint", offset),
+                OpCode::OpPop => Debug::simple_instruction("OpPop", offset),
+                OpCode::OpDefineGlobal=> Debug::constant_instruction("OpDefineGlobal", chunk, offset),
+                OpCode::OpGetGlobal=> Debug::constant_instruction("OpGetGlobal", chunk, offset),
+                OpCode::OpSetGlobal=> Debug::constant_instruction("OpSetGlobal", chunk, offset)
             }
         } else {
             // Print invalid instruction error
