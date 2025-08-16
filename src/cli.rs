@@ -1,13 +1,12 @@
 /// This module handles CLI arguments and takes actions. Simplified using `clap` crate
-
 use std::{
     fs,
     io::{self, Write},
     process,
 };
 
+use crate::{execute, vm::VM};
 use clap::Parser;
-use crate::execute;
 
 #[derive(Parser, Debug)]
 #[command(author,version, about, long_about=None)]
@@ -21,6 +20,9 @@ pub fn repl() {
     let stdin = io::stdin();
     let mut stdout = io::stdout();
     let mut line = String::new();
+
+    // let mut chunk = Chunk::new();
+    let mut vm = VM::new();
 
     loop {
         print!("> ");
@@ -54,9 +56,9 @@ pub fn repl() {
                 if source == "exit" {
                     break;
                 }
- 
+
                 // just run the code and display errors if any
-                execute(source);
+                execute(source, &mut vm);
             }
             // Display error if reading line from cli is unsuccessful
             Err(e) => {
@@ -71,10 +73,12 @@ pub fn repl() {
 
 /// Executes code from a file
 pub fn run_file(file_path: &str) {
+    let mut vm = VM::new();
+
     // Reads file and returns Result. If result is Ok, execute the string obtained from file
     if let Ok(content) = fs::read_to_string(file_path) {
-        execute(&content);
-    } else { 
+        execute(&content, &mut vm);
+    } else {
         eprintln!("Can't read code from file: {file_path}");
         process::exit(74);
     }
