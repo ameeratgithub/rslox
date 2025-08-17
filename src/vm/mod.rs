@@ -37,9 +37,9 @@ impl std::fmt::Display for VMError {
 }
 
 /// Data structure to handle a stack based virtual machine
-pub struct VM<'a> {
+pub struct VM {
     /// A mutable reference to the `Chunk`.
-    chunk: &'a Chunk,
+    pub chunk: Chunk,
     /// Instruction pointer offset.
     ip_offset: usize,
     /// Stack to handle variables. Fixed stack size for simplicity, but has some limitations
@@ -52,11 +52,11 @@ pub struct VM<'a> {
     globals: HashMap<String, Value>,
 }
 
-impl<'a> VM<'a> {
+impl VM {
     /// Returns a new instance of the VM
-    pub fn new(chunk: &'a Chunk) -> Self {
+    pub fn new() -> Self {
         Self {
-            chunk,
+            chunk: Chunk::new(),
             // Offset from where vm would start executing.
             ip_offset: 0,
             // All values should be nil/empty by default
@@ -69,6 +69,10 @@ impl<'a> VM<'a> {
             globals: HashMap::new(),
         }
     }
+
+    // pub fn set_chunk(&mut self, chunk: &'a Chunk) {
+    //     self.chunk = Some(chunk);
+    // }
 
     /// Compiles source code, gets bytecode from compiler, and executes that bytecode
     pub fn interpret(&mut self) -> Result<(), VMError> {
