@@ -70,7 +70,7 @@ pub fn repl() {
         line.clear();
     }
 
-    vm.reset_stack();
+    vm.reset_vm();
 }
 
 /// Executes code from a file
@@ -79,7 +79,7 @@ pub fn run_file(file_path: &str) {
     // Reads file and returns Result. If result is Ok, execute the string obtained from file
     if let Ok(content) = fs::read_to_string(file_path) {
         execute(&content, &mut vm);
-        vm.reset_stack();
+        vm.reset_vm();
     } else {
         eprintln!("Can't read code from file: {file_path}");
         process::exit(74);

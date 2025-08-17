@@ -214,7 +214,6 @@ impl VM {
         let value = Value::from_runtime_str(left + &right, self)
             .map_err(|err| self.construct_runtime_error(format_args!("{}", err)))?;
         self.push(value);
-
         // Return because our work here is done.
         return Ok(());
     }

@@ -17,7 +17,7 @@ pub mod vm;
 // Helper function which just logs if any errors are returned
 fn execute(code: &str, vm: &mut VM) {
     if let Err(e) = interpret(code, vm) {
-        vm.reset_stack();
+        vm.reset_vm();
         match e {
             VMError::CompileError(e) => {
                 eprintln!("Compiler Error: {}", e);
