@@ -17,6 +17,7 @@ pub mod vm;
 // Helper function which just logs if any errors are returned
 fn execute(code: &str, vm: &mut VM) {
     if let Err(e) = interpret(code, vm) {
+        vm.reset_stack();
         match e {
             VMError::CompileError(e) => {
                 eprintln!("Compiler Error: {}", e);
@@ -43,9 +44,5 @@ pub fn interpret(code: &str, vm: &mut VM) -> Result<(), VMError> {
 
     // let mut vm: VM<'_> = VM::new();
     // vm.set_chunk(chunk);
-    vm.interpret()?;
-    // Reset VM to its initial state. Frees garbage collection and resets stack.
-    vm.reset_vm();
-
-    Ok(())
+    vm.interpret()
 }
