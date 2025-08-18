@@ -70,10 +70,6 @@ impl VM {
         }
     }
 
-    // pub fn set_chunk(&mut self, chunk: &'a Chunk) {
-    //     self.chunk = Some(chunk);
-    // }
-
     /// Compiles source code, gets bytecode from compiler, and executes that bytecode
     pub fn interpret(&mut self) -> Result<(), VMError> {
         // Run the bytecode (`self.chunk`) received from compiler.
