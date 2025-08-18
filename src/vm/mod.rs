@@ -43,7 +43,7 @@ pub struct VM {
     /// Instruction pointer offset.
     ip_offset: usize,
     /// Stack to handle variables. Fixed stack size for simplicity, but has some limitations
-    stack: [Value; STACK_MAX as usize],
+    stack: [Value; STACK_MAX],
     /// A pointer to check where we're on our stack. If value is 0, stack is empty.
     stack_top: usize,
     /// A linked list to track Objects stored on heap, mainly used for garbage collection. Linked list is not the best data structure used for garbage collection. Just keeping it simple for now.
@@ -60,7 +60,7 @@ impl VM {
             // Offset from where vm would start executing.
             ip_offset: 0,
             // All values should be nil/empty by default
-            stack: [const { Value::new_nil() }; STACK_MAX as usize],
+            stack: [const { Value::new_nil() }; STACK_MAX],
             // This would be one step ahead of the current element.
             stack_top: 0,
             // No objects when vm is initialized
@@ -69,10 +69,6 @@ impl VM {
             globals: HashMap::new(),
         }
     }
-
-    // pub fn set_chunk(&mut self, chunk: &'a Chunk) {
-    //     self.chunk = Some(chunk);
-    // }
 
     /// Compiles source code, gets bytecode from compiler, and executes that bytecode
     pub fn interpret(&mut self) -> Result<(), VMError> {
@@ -306,6 +302,15 @@ impl VM {
         Ok(())
     }
 
+    fn read_byte(&mut self) -> u8 {
+        // First byte should be the instruction byte of the code
+        let instruction_byte = self.chunk.code[self.ip_offset];
+        // Increment instruction pointer after reading the byte
+        self.ip_offset += 1;
+
+        instruction_byte
+    }
+
     pub fn run(&mut self) -> Result<(), VMError> {
         loop {
             // This blocks executes only when this debug tracing feature is enabled.
@@ -321,10 +326,7 @@ impl VM {
                 Debug::dissassemble_instruction(&self.chunk, self.ip_offset);
             }
 
-            // First byte should be the instruction byte of the code
-            let instruction_byte = self.chunk.code[self.ip_offset];
-            // Increment instruction pointer after reading the byte
-            self.ip_offset += 1;
+            let instruction_byte = self.read_byte();
 
             // Try to convert that byte to `OpCode` enum
             if let Ok(opcode) = OpCode::try_from(instruction_byte) {
@@ -347,6 +349,14 @@ impl VM {
                             // Return error if value on stack is not found
                             self.construct_runtime_error(format_args!("Expected value on the stack")))?;
                         println!("{}", v);
+                    }
+                    OpCode::OpGetLocal => {
+                        let slot = self.read_byte();
+                        self.push(self.stack[slot as usize].clone());
+                    }
+                    OpCode::OpSetLocal => {
+                        let slot = self.read_byte();
+                        self.stack[slot as usize] = self.stack[self.stack_top - 1].clone();
                     }
                     // Define a global variable and insert into `HashMap`
                     OpCode::OpDefineGlobal => {
