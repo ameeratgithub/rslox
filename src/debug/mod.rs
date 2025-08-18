@@ -52,9 +52,13 @@ impl Debug {
                 OpCode::OpLess => Debug::simple_instruction("OpLess", offset),
                 OpCode::OpPrint => Debug::simple_instruction("OpPrint", offset),
                 OpCode::OpPop => Debug::simple_instruction("OpPop", offset),
-                OpCode::OpDefineGlobal=> Debug::constant_instruction("OpDefineGlobal", chunk, offset),
-                OpCode::OpGetGlobal=> Debug::constant_instruction("OpGetGlobal", chunk, offset),
-                OpCode::OpSetGlobal=> Debug::constant_instruction("OpSetGlobal", chunk, offset)
+                OpCode::OpDefineGlobal => {
+                    Debug::constant_instruction("OpDefineGlobal", chunk, offset)
+                }
+                OpCode::OpGetGlobal => Debug::constant_instruction("OpGetGlobal", chunk, offset),
+                OpCode::OpSetGlobal => Debug::constant_instruction("OpSetGlobal", chunk, offset),
+                OpCode::OpGetLocal => Debug::byte_instruction("OpGetLocal", chunk, offset),
+                OpCode::OpSetLocal => Debug::byte_instruction("OpSetLocal", chunk, offset),
             }
         } else {
             // Print invalid instruction error
@@ -81,5 +85,11 @@ impl Debug {
         println!("{name}");
         // Since simple instruction is one byte, new offset would be offset + 1
         offset + 1
+    }
+
+    fn byte_instruction(name: &str, chunk: &Chunk, offset: usize) -> usize {
+        let slot = chunk.code[offset + 1];
+        print!("{: <16} {: >4} '", name, slot);
+        offset + 2
     }
 }

@@ -52,6 +52,8 @@ pub enum OpCode {
     OpGetGlobal = 17,
     /// Reads name of the variable from bytecode, gets value from the stack, and insert variable name and new value into `globals`
     OpSetGlobal = 18,
+    OpGetLocal = 19,
+    OpSetLocal = 20,
 }
 
 /// We need to convert `u8` to `OpCode`. Implementing `TryFrom` makes sense because `u8` can
@@ -79,6 +81,8 @@ impl TryFrom<u8> for OpCode {
             16 => Ok(Self::OpDefineGlobal),
             17 => Ok(Self::OpGetGlobal),
             18 => Ok(Self::OpSetGlobal),
+            19 => Ok(Self::OpGetLocal),
+            20 => Ok(Self::OpSetLocal),
             _ => Err(ChunkError::InvalidOpCode(value)),
         }
     }

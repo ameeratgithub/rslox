@@ -1,0 +1,14 @@
+var first_name = "Ameer";
+var last_name = "Hamza";
+var full_name = first_name+" "+last_name;
+
+{
+    var first_name = "Keen";
+    // var last_name=last_name; is invalid code currently, because we can't read variable with same name while initializing
+    var last_name = "Programmer";
+    var full_name = first_name+" "+last_name;
+    print full_name;
+}
+
+print full_name;
+

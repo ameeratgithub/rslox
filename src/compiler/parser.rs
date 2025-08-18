@@ -92,7 +92,7 @@ impl<'a> Parser<'a> {
     }
 
     /// This returns error for current token
-    fn error_at_current(&self, message: &str) -> ParserError {
+    pub fn error_at_current(&self, message: &str) -> ParserError {
         // Safe to unwrap `current` because value is present.
         self.construct_error(&self.current.as_ref().unwrap(), message)
     }
