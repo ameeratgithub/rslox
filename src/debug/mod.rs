@@ -59,6 +59,9 @@ impl Debug {
                 OpCode::OpSetGlobal => Debug::constant_instruction("OpSetGlobal", chunk, offset),
                 OpCode::OpGetLocal => Debug::byte_instruction("OpGetLocal", chunk, offset),
                 OpCode::OpSetLocal => Debug::byte_instruction("OpSetLocal", chunk, offset),
+                OpCode::OpJump => Debug::jump_instruction("OpJump", 1, chunk, offset),
+                OpCode::OpJumpIfFalse => Debug::jump_instruction("OpJumpIfFalse", 1, chunk, offset),
+                OpCode::OpLoop => Debug::jump_instruction("OpLoop", -1, chunk, offset),
             }
         } else {
             // Print invalid instruction error
@@ -91,5 +94,17 @@ impl Debug {
         let slot = chunk.code[offset + 1];
         print!("{: <16} {: >4} '", name, slot);
         offset + 2
+    }
+
+    fn jump_instruction(name: &str, sign: isize, chunk: &Chunk, offset: usize) -> usize {
+        let jump = u16::from_be_bytes([chunk.code[offset + 1], chunk.code[offset + 2]]);
+        println!(
+            "{: <16} {: >4} -> {}",
+            name,
+            offset,
+            ((offset + 3) as isize) + sign * (jump as isize)
+        );
+
+        offset + 3
     }
 }

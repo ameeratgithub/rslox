@@ -1,0 +1,11 @@
+var j=1;
+while (j<=5){
+    print j;
+    j=j+1;
+}
+
+print "---------";
+
+for (var i=0; i<5; i=i+1){
+    print i;
+}

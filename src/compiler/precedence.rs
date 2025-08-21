@@ -211,8 +211,8 @@ impl<'a> ParseRule<'a> {
             // TokenType::And
             ParseRule {
                 prefix: None,
-                infix: None,
-                precedence: Precedence::None,
+                infix: Some(Compiler::logical_and),
+                precedence: Precedence::And,
             },
             // TokenType::Class
             ParseRule {
@@ -259,8 +259,8 @@ impl<'a> ParseRule<'a> {
             // TokenType::Or
             ParseRule {
                 prefix: None,
-                infix: None,
-                precedence: Precedence::None,
+                infix: Some(Compiler::logical_or),
+                precedence: Precedence::Or,
             },
             // TokenType::Print
             ParseRule {

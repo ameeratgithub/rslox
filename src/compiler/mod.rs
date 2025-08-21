@@ -103,6 +103,12 @@ impl<'a> Compiler<'a> {
         Ok(())
     }
 
+    fn consume(&mut self, ty: TokenType, message: &str) -> Result<(), CompilerError> {
+        self.parser
+            .consume(ty, message)
+            .map_err(|e| CompilerError::ParserError(e))
+    }
+
     /// Responsible to handle all top level statements and declarations
     fn declaration(&mut self) -> Result<(), CompilerError> {
         // If current token type is var, emit bytecode for variable declaration, otherwise proceed with other types of statements
@@ -129,9 +135,7 @@ impl<'a> Compiler<'a> {
             self.emit_byte(OpCode::OpNil as u8)?;
         }
         // Variable declaration and initialization has been parsed. Consume ';' from the end.
-        self.parser
-            .consume(TokenType::Semicolon, "Expected ';'")
-            .map_err(|e| CompilerError::ParserError(e))?;
+        self.consume(TokenType::Semicolon, "Expected ';'")?;
 
         // Define global variable
         self.define_variable(global)?;
@@ -142,14 +146,13 @@ impl<'a> Compiler<'a> {
     /// Parses variable and generates bytecode for variable name, returns variable name's index of constant pool
     fn parse_variable(&mut self, message: &str) -> Result<u8, CompilerError> {
         // Identifier, variable name in this case, would be consumed.
-        self.parser
-            .consume(TokenType::Identifier, message)
-            .map_err(|e| CompilerError::ParserError(e))?;
+        self.consume(TokenType::Identifier, message)?;
         // After consumption, variable name is in previous token
-        let prev_token = self.parser.previous.clone().ok_or_else(|| {
-            let error = self.parser.error_at_previous("Expected variable name");
-            CompilerError::ParserError(error)
-        })?;
+        let prev_token = self
+            .parser
+            .previous
+            .clone()
+            .ok_or_else(|| self.construct_token_error(false, "Expected variable name"))?;
 
         self.declare_local_variable()?;
         if self.scope_depth > 0 {
@@ -166,31 +169,31 @@ impl<'a> Compiler<'a> {
             return Ok(());
         }
 
-        let name = self.parser.previous.clone().ok_or_else(|| {
-            CompilerError::ParserError(self.parser.error_at_previous("Variable name expected."))
-        })?;
+        let error = self.construct_token_error(false, "Variable name expected.");
+
+        let name = self.parser.previous.clone().ok_or(error)?;
 
         for i in (0..self.local_count).rev() {
+            let scope_depth = self.scope_depth;
             let local = self.get_local_variable_ref(i as usize)?;
-            if local.depth != -1 && local.depth < self.scope_depth {
+            if local.depth != -1 && local.depth < scope_depth {
                 break;
             }
-
-            if self.are_identifiers_equal(&name, &local.name) {
-                let error = self
-                    .parser
-                    .error_at_previous("Already a variable with this name in this scope.");
-                return Err(CompilerError::ParserError(error));
+            let name = &local.name.clone();
+            if self.are_identifiers_equal(&name, name) {
+                return Err(self.construct_token_error(
+                    false,
+                    "Already a variable with this name in this scope.",
+                ));
             }
         }
         self.add_local_variable(name)?;
         Ok(())
     }
 
-    fn get_local_variable_ref(&self, index: usize) -> Result<&Local, CompilerError> {
-        self.locals[index].as_ref().ok_or_else(|| {
-            CompilerError::ParserError(self.parser.error_at_previous("Variable name expected."))
-        })
+    fn get_local_variable_ref(&mut self, index: usize) -> Result<&Local, CompilerError> {
+        let err_message = self.construct_token_error(false, "Variable name expected.");
+        self.locals[index].as_ref().ok_or(err_message)
     }
 
     fn are_identifiers_equal(&self, token_a: &Token, token_b: &Token) -> bool {
@@ -200,15 +203,15 @@ impl<'a> Compiler<'a> {
         token_a.as_str(self.source) == token_b.as_str(self.source)
     }
 
-    fn resolve_local(&self, name: &Token) -> Result<i32, CompilerError> {
+    fn resolve_local(&mut self, name: &Token) -> Result<i32, CompilerError> {
         for i in (0..self.local_count).rev() {
-            let local = self.get_local_variable_ref(i as usize)?;
+            let local = self.get_local_variable_ref(i as usize)?.clone();
             if self.are_identifiers_equal(name, &local.name) {
                 if local.depth == -1 {
-                    let error = self
-                        .parser
-                        .error_at_previous("Can't read local variable in its own initializer");
-                    return Err(CompilerError::ParserError(error));
+                    return Err(self.construct_token_error(
+                        false,
+                        "Can't read local variable in its own initializer",
+                    ));
                 }
                 return Ok(i);
             }
@@ -218,10 +221,7 @@ impl<'a> Compiler<'a> {
 
     fn add_local_variable(&mut self, name: Token) -> Result<(), CompilerError> {
         if self.local_count == UINT8_COUNT as i32 {
-            let parser_error = self
-                .parser
-                .error_at_previous("Too many local variables in scope");
-            return Err(CompilerError::ParserError(parser_error));
+            return Err(self.construct_token_error(false, "Too many local variables in scope"));
         }
 
         let local = Local { name, depth: -1 };
@@ -233,16 +233,15 @@ impl<'a> Compiler<'a> {
     }
 
     fn mark_variable_initialized(&mut self) -> Result<(), CompilerError> {
+        let error = self.construct_token_error(false, "Expected local variable");
         let local = self.locals[(self.local_count - 1) as usize]
             .as_mut()
-            .ok_or_else(|| {
-                let err = self.parser.error_at_previous("Expected local variable");
-                CompilerError::ParserError(err)
-            })?;
+            .ok_or(error)?;
 
         local.depth = self.scope_depth;
         Ok(())
     }
+
     /// Writes bytecode to define global variable
     fn define_variable(&mut self, global: u8) -> Result<(), CompilerError> {
         if self.scope_depth > 0 {
@@ -255,8 +254,15 @@ impl<'a> Compiler<'a> {
 
     /// Evaluates statements
     fn statement(&mut self) -> Result<(), CompilerError> {
+        
         if self.match_curr_ty(TokenType::Print)? {
             self.print_statement()?;
+        } else if self.match_curr_ty(TokenType::For)? {
+            self.for_statement()?;
+        } else if self.match_curr_ty(TokenType::If)? {
+            self.if_statement()?;
+        } else if self.match_curr_ty(TokenType::While)? {
+            self.while_statement()?;
         } else if self.match_curr_ty(TokenType::LeftBrace)? {
             self.begin_scope();
             self.block()?;
@@ -267,14 +273,102 @@ impl<'a> Compiler<'a> {
         Ok(())
     }
 
+    fn if_statement(&mut self) -> Result<(), CompilerError> {
+        // 'if' token already consumed, now consume '('
+        self.consume(TokenType::LeftParen, "Expected '(' after 'if'")?;
+        // Evaluate condition expression and put the result on stack
+        self.expression()?;
+        // Consume the ')', after evaluation
+        self.consume(TokenType::RightParen, "Expected ')' after condition")?;
+        // If condition fails, then we'll need to skip the 'then' block. For this purpose, 'OpJumpIfFalse' needs to be emitted with distance/number of bytes we need to skip. To skip 65,535 bytes, we need to reserve two bytes. `emit_jump` will also emit these two place holder bytes alongside the OpCode.
+        let then_jump = self.emit_jump(OpCode::OpJumpIfFalse as u8)?;
+        // Emit opcode to pop the condition if the condition is true. This is important before emitting the bytecode for statements of if block.
+        self.emit_byte(OpCode::OpPop as u8)?;
+        // Evaluate the 'then' block
+        self.statement()?;
+        // Emit instructions for jumping to a specific position. Currently will contain placeholder bytes alongside the `OpJump` opcode
+        let else_jump = self.emit_jump(OpCode::OpJump as u8)?;
+        // `then_jump` will get patched. It means, we have evaluated the 'if' block code, we'll update the distance bytes, i.e. how far we actually need to jump when 'if' condition fails
+        // Till now, we've evaluated and generated byte code for 'if' (3 bytes), 'if block' (gets executed when condition is true), and 'else' (3 bytes). When 'if' condition is false, it will skip else bytecode. It's all linear array of bytes, so we will skip right after `else`'s 3 bytes.
+        self.patch_jump(then_jump)?;
+        // Assuming if condition is false, and code is jumped to after `else`'s 3 bytes, we need to pop the condition result from the stack.
+        self.emit_byte(OpCode::OpPop as u8)?;
+        // Evaluate the else block
+        if self.match_curr_ty(TokenType::Else)? {
+            self.statement()?;
+        }
+        // Else jump should only be patched after evaluation of the else block. No `OpPop` needed because else doesn't have any condition
+        self.patch_jump(else_jump)?;
+
+        Ok(())
+    }
+
+    fn while_statement(&mut self) -> Result<(), CompilerError> {
+        let loop_start = self.chunk.code.len();
+        self.consume(TokenType::LeftParen, "Expect '(' after 'while'")?;
+        self.expression()?;
+        self.consume(TokenType::RightParen, "Expect ')' after condition")?;
+
+        let exit_jump = self.emit_jump(OpCode::OpJumpIfFalse as u8)?;
+        self.emit_byte(OpCode::OpPop as u8)?;
+        self.statement()?;
+        self.emit_loop(loop_start)?;
+
+        self.patch_jump(exit_jump)?;
+        self.emit_byte(OpCode::OpPop as u8)
+    }
+
+    fn for_statement(&mut self) -> Result<(), CompilerError> {
+        self.begin_scope();
+        self.consume(TokenType::LeftParen, "Expected '(' after 'for'.")?;
+
+        if self.match_curr_ty(TokenType::Semicolon)? {
+            // No initializer
+        } else if self.match_curr_ty(TokenType::Var)? {
+            self.var_declaration()?;
+        } else {
+            self.expression_statement()?;
+        }
+
+        let mut loop_start = self.chunk.code.len();
+
+        let mut exit_jump: isize = -1;
+        if !self.match_curr_ty(TokenType::Semicolon)? {
+            self.expression()?;
+            self.consume(TokenType::Semicolon, "Expected ';' after loop condition")?;
+            exit_jump = self.emit_jump(OpCode::OpJumpIfFalse as u8)? as isize;
+            self.emit_byte(OpCode::OpPop as u8)?;
+        }
+
+        if !self.match_curr_ty(TokenType::RightParen)? {
+            let body_jump = self.emit_jump(OpCode::OpJump as u8)?;
+            let increment_start = self.chunk.code.len();
+            self.expression()?;
+            self.emit_byte(OpCode::OpPop as u8)?;
+            self.consume(TokenType::RightParen, "Expected ')' after for clause.")?;
+
+            self.emit_loop(loop_start)?;
+            loop_start = increment_start;
+            self.patch_jump(body_jump)?;
+        }
+
+        self.statement()?;
+        self.emit_loop(loop_start)?;
+
+        if exit_jump != -1 {
+            self.patch_jump(exit_jump as usize)?;
+            self.emit_byte(OpCode::OpPop as u8)?;
+        }
+
+        self.end_scope()
+    }
+
     /// Evaluates expression statements. Result of expression statement is discarded at the end of the evaluation. These statements are executed for their side effects, not their produced results.
     fn expression_statement(&mut self) -> Result<(), CompilerError> {
         // Evaluate the expression
         self.expression()?;
         // Consume the ';' from the end of the expression
-        self.parser
-            .consume(TokenType::Semicolon, "Expect ';' after expression.")
-            .map_err(|e| CompilerError::ParserError(e))?;
+        self.consume(TokenType::Semicolon, "Expect ';' after expression.")?;
         // Discard the result, because it's not needed.
         self.emit_byte(OpCode::OpPop as u8)?;
         Ok(())
@@ -311,28 +405,19 @@ impl<'a> Compiler<'a> {
             self.declaration()?;
         }
 
-        self.parser
-            .consume(TokenType::RightBrace, "Expected '}' after block.")
-            .map_err(|e| CompilerError::ParserError(e))
+        self.consume(TokenType::RightBrace, "Expected '}' after block.")
     }
 
     fn number(&mut self, _: bool) -> Result<(), CompilerError> {
+        let error = self.construct_token_error(false, "Expected Number, found None");
         // Get previous token, which should be a number
-        let token = self
-            .parser
-            .previous
-            .as_ref()
-            .ok_or(CompilerError::ParserError(
-                self.parser.error_at_previous("Expected Number, found None"),
-            ))?;
-
+        let token = self.parser.previous.as_ref().ok_or(error)?;
         // Extract number from source code.
         let val = &self.source[token.start..token.start + token.length as usize];
-
         // Try to parse number to the `Value`
-        let val: f64 = val.parse().map_err(|e: ParseFloatError| {
-            CompilerError::ParserError(self.parser.error_at_previous(&e.to_string()))
-        })?;
+        let val: f64 = val
+            .parse()
+            .map_err(|e: ParseFloatError| self.construct_token_error(false, &e.to_string()))?;
 
         // Write this in chunk
         self.emit_constant(val.into())?;
@@ -346,35 +431,21 @@ impl<'a> Compiler<'a> {
         self.expression()?;
 
         // When inner expression is evaluated/parsed, consume the right parenthesis
-        self.parser
-            .consume(TokenType::RightParen, "Expected ')' after expression.")
-            .map_err(|e| CompilerError::ParserError(e))?;
+        self.consume(TokenType::RightParen, "Expected ')' after expression.")?;
 
         Ok(())
     }
 
     /// Returns type of the current token
     fn get_current_token_ty(&mut self) -> Result<TokenType, CompilerError> {
-        Ok(self
-            .parser
-            .current
-            .as_ref()
-            .ok_or(CompilerError::ParserError(
-                self.parser.error_at_current("Expected token"),
-            ))?
-            .ty)
+        let error = self.construct_token_error(true, "Expected token");
+        Ok(self.parser.current.as_ref().ok_or(error)?.ty)
     }
 
     /// Returns type of the previous token
     fn get_previous_token_ty(&mut self) -> Result<TokenType, CompilerError> {
-        Ok(self
-            .parser
-            .previous
-            .as_ref()
-            .ok_or(CompilerError::ParserError(
-                self.parser.error_at_previous("Expected token"),
-            ))?
-            .ty)
+        let error = self.construct_token_error(false, "Expected token");
+        Ok(self.parser.previous.as_ref().ok_or(error)?.ty)
     }
 
     /// Executes instructions according to precedence.
@@ -419,11 +490,40 @@ impl<'a> Compiler<'a> {
             }
         } else {
             // Token should have an infix rule
-            let err = self.parser.error_at_previous("Expected expression.");
-            return Err(CompilerError::ParserError(err));
+            return Err(self.construct_token_error(false, "Expected expression."));
         }
 
         Ok(())
+    }
+
+    // Performs the logical 'AND' operation between two boolean values.
+    fn logical_and(&mut self, _: bool) -> Result<(), CompilerError> {
+        // Left hand expression has already been evaluated and result would be on stack.
+        // So if that result is false, just emit jump, as we don't need to evaluate the second condition.
+        let end_jump = self.emit_jump(OpCode::OpJumpIfFalse as u8)?;
+        // Pop the result from the stack
+        self.emit_byte(OpCode::OpPop as u8)?;
+        // Evaluate right hand expression with precedence of `And`
+        self.parse_precedence(Precedence::And)?;
+
+        // Calculate the jump distance. If first condition is false, it will jump over the bytes of subsequent conditions.
+        self.patch_jump(end_jump)
+    }
+    // Performs the logical 'OR' operation between two boolean values.
+    fn logical_or(&mut self, _: bool) -> Result<(), CompilerError> {
+        // Left expression got evaluated, and is on the stack.
+        // If that left expression is false, we need to evaluate the right expression.
+        let else_jump = self.emit_jump(OpCode::OpJumpIfFalse as u8)?;
+        // If left expression is true, we'll need to jump straight to the 'then' block, without checking any other condition
+        let end_jump = self.emit_jump(OpCode::OpJump as u8)?;
+        // This will skip to the remaining expression, if the first expression is false.
+        self.patch_jump(else_jump)?;
+        // Pop the result of evaluation of expression from the stack
+        self.emit_byte(OpCode::OpPop as u8)?;
+        // Parse the right hand side with `Precedence::Or`
+        self.parse_precedence(Precedence::Or)?;
+        // Patch the jump to go to the 'then' block.
+        self.patch_jump(end_jump)
     }
 
     /// Writes byte code for binary instructions
@@ -499,9 +599,8 @@ impl<'a> Compiler<'a> {
     }
 
     fn string(&mut self, _: bool) -> Result<(), CompilerError> {
-        let token = self.parser.previous.as_ref().ok_or_else(|| {
-            CompilerError::ParserError(self.parser.error_at_previous("Expected token"))
-        })?;
+        let error = self.construct_token_error(false, "Expected token");
+        let token = self.parser.previous.as_ref().ok_or(error)?;
         // Skip the double quotes character '"'
         let start_index = token.start + 1;
         // Last index of token would be `length - 1`, and has ending double quotes
@@ -519,15 +618,8 @@ impl<'a> Compiler<'a> {
 
     /// Evaluates the variable declaration and initialization
     fn variable(&mut self, can_assign: bool) -> Result<(), CompilerError> {
-        let prev_token = self
-            .parser
-            .previous
-            .as_ref()
-            .ok_or_else(|| {
-                CompilerError::ParserError(self.parser.error_at_previous("Expected previous token"))
-            })?
-            .clone();
-
+        let error = self.construct_token_error(false, "Expected previous token");
+        let prev_token = self.parser.previous.as_ref().ok_or(error)?.clone();
         self.named_variable(&prev_token, can_assign)
     }
 
@@ -566,9 +658,7 @@ impl<'a> Compiler<'a> {
         // Print statement has been consumed. Just parse the expression
         self.expression()?;
         // Consume the ';' from the end of the statement
-        self.parser
-            .consume(TokenType::Semicolon, "Expected ';' after value.")
-            .map_err(|e| CompilerError::ParserError(e))?;
+        self.consume(TokenType::Semicolon, "Expected ';' after value.")?;
         // Emit opcode for print
         self.emit_byte(OpCode::OpPrint as u8)?;
         Ok(())
@@ -613,17 +703,62 @@ impl<'a> Compiler<'a> {
         Ok(())
     }
 
+    fn emit_jump(&mut self, instruction: u8) -> Result<usize, CompilerError> {
+        self.emit_byte(instruction)?;
+        self.emit_byte(0xff)?;
+        self.emit_byte(0xff)?;
+        // Will point to first byte after instruction
+        let offset = self.chunk.code.len() - 2;
+        Ok(offset)
+    }
+
+    fn emit_loop(&mut self, loop_start: usize) -> Result<(), CompilerError> {
+        self.emit_byte(OpCode::OpLoop as u8)?;
+        let offset = self.chunk.code.len() - loop_start + 2;
+        if offset > u16::MAX as usize {
+            let err = self.construct_token_error(false, "Loop body too large");
+            return Err(err);
+        }
+        let offset_bytes = u16::to_be_bytes(offset as u16);
+        self.emit_byte(offset_bytes[0])?;
+        self.emit_byte(offset_bytes[1])
+    }
+
+    fn patch_jump(&mut self, offset: usize) -> Result<(), CompilerError> {
+        // Offset is first byte after `OpIfFalse` instruction, excluding 'then' block
+        // `chunk.code` contains bytecode after executing 'then' block
+        // So if failed, we want to jump to after 'then' block
+        // -2 is important to calculate relative distance.
+        // Consider following scenario:
+        // 1. `if` instruction index: 9, code length: 10
+        // 2. Two place holder bytes emitted, code length: 12
+        // 3. Offset = code length - 2 = 10, which is first byte after `if` instruction
+        // 4. `then` block compiled, let's say code length = 50
+        // 5. code length - offset = 50 - 10 = 40
+        // 6. offset is of first byte after instruction, so these are included right now in jump position calculation
+        // 7. if code length is 50, then our then block should be of 38 bytes. Why? our code length was 12 when two place holder bytes were emitted. 12 + 38 = 50.
+        // 8. to correctly calculate that jump position, we also need to subtract 2 from code length
+        let jump = self.chunk.code.len() - offset - 2;
+        if jump > (u16::MAX as usize) {
+            return Err(self.construct_token_error(false, "Too much code to jump over"));
+        }
+        // Jump is 32-bit, so we want to extract 2nd least significant byte.
+        // jump>>8 will discard the least-significant byte and will make 2nd least significant, a least significant one.
+        // Because our result is in least significant byte now, we will 'mask' our byte, by making essentialy all other bytes, zeros.
+        let jump_bytes = (jump as u16).to_be_bytes();
+        self.chunk.code[offset as usize] = jump_bytes[0];
+        // We've used our 2nd least significant byte, so we'll use least significant byte. It's already least significant, no need to right shift. Just set all other bytes to zeros, by masking.
+        self.chunk.code[offset as usize + 1] = jump_bytes[1];
+        Ok(())
+    }
+
     /// Adds constant to constant pool and returns its index
     fn make_constant(&mut self, value: Value) -> Result<u8, CompilerError> {
         let constant = self.chunk.add_constant(value);
         // Only allows 256 constants to be stored in constant pool
         if constant > u8::MAX as usize {
-            let err = self
-                .parser
-                .error_at_previous("Too many constants in one chunk");
-            return Err(CompilerError::ParserError(err));
+            return Err(self.construct_token_error(false, "Too many constants in one chunk"));
         }
-
         Ok(constant as u8)
     }
 
@@ -640,16 +775,8 @@ impl<'a> Compiler<'a> {
 
     /// Writes a byte to the `chunk`
     fn emit_byte(&mut self, byte: u8) -> Result<(), CompilerError> {
-        // Getting parser.previous should always return a token.
-        // So it's safe to unwrap
-        let line = self
-            .parser
-            .previous
-            .as_ref()
-            .ok_or(CompilerError::ParserError(
-                self.parser.error_at_previous("Expected token"),
-            ))?
-            .line;
+        let error = self.construct_token_error(false, "Expected token");
+        let line = self.parser.previous.as_ref().ok_or(error)?.line;
         // Add byte with token's line
         self.chunk.write_chunk(byte, line);
         Ok(())
@@ -665,5 +792,14 @@ impl<'a> Compiler<'a> {
         self.emit_byte(byte1)?;
         self.emit_byte(byte2)?;
         Ok(())
+    }
+
+    fn construct_token_error(&mut self, is_current: bool, message: &str) -> CompilerError {
+        let error = if is_current {
+            self.parser.error_at_current(message)
+        } else {
+            self.parser.error_at_previous(message)
+        };
+        CompilerError::ParserError(error)
     }
 }

@@ -493,9 +493,38 @@ impl VM {
                         // This is possible because of PartialEq trait implementation
                         self.push((a == b).into());
                     }
+                    OpCode::OpJumpIfFalse => {
+                        // Reads the two bytes of distance being jumped
+                        let offset = self.read_u16();
+                        // Result of the condition
+                        let if_condition = &self.stack[self.stack_top - 1];
+                        // If condition is false, then perform the jump, other wise continue executing the statements
+                        if if_condition.clone().is_falsey() {
+                            self.ip_offset += offset as usize;
+                        }
+                    }
+                    OpCode::OpJump => {
+                        // Read distance to jump
+                        let offset = self.read_u16();
+                        // We don't check condition before jumping because else doesn't have any condition. If this instruction gets executed, just perform jump. When generating bytecode for if condition, when if condition is false, jump has to be immediately after this opcode (total 3 bytes). Otherwise it will get messy.
+                        self.ip_offset += offset as usize;
+                    }
+                    OpCode::OpLoop => {
+                        let offset = self.read_u16();
+                        self.ip_offset -= offset as usize;
+                    }
                 }
             }
         }
+    }
+
+    fn read_u16(&mut self) -> u16 {
+        // Read bytes
+        let bytes = &self.chunk.code[self.ip_offset..self.ip_offset + 2];
+        // Advance two bytes
+        self.ip_offset += 2;
+        // Convert to u16
+        u16::from_be_bytes([bytes[0], bytes[1]])
     }
 
     /// Show items in garbadge collection

@@ -18,7 +18,7 @@ impl std::fmt::Display for ObjectType {
         match self {
             Self::String(s) => {
                 // Display string values in double quotes
-                write!(f, "\"{s}\"")
+                write!(f, "{s}")
             }
         }
     }
@@ -415,7 +415,7 @@ impl std::fmt::Display for Value {
                 write!(f, "{n}")
             }
             Self::Literal(Literal::String(s)) => {
-                write!(f, "\"{s}\"")
+                write!(f, "{s}")
             }
             Self::Obj(obj) => unsafe { write!(f, "{}", obj.as_ref()) },
         }
