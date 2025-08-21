@@ -238,9 +238,9 @@ impl<'a> Scanner<'a> {
                         // Checks for keyword `false`
                         'a' => self.check_keyword(2, 3, "lse", TokenType::False),
                         // Checks for keyword `for`
-                        'o' => self.check_keyword(2, 1, "r", TokenType::False),
+                        'o' => self.check_keyword(2, 1, "r", TokenType::For),
                         // Checks for keyword `fun`
-                        'u' => self.check_keyword(2, 1, "n", TokenType::False),
+                        'u' => self.check_keyword(2, 1, "n", TokenType::Fun),
                         // It's a custom Identifier
                         _ => TokenType::Identifier,
                     }

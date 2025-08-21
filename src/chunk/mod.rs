@@ -54,6 +54,9 @@ pub enum OpCode {
     OpSetGlobal = 18,
     OpGetLocal = 19,
     OpSetLocal = 20,
+    OpJumpIfFalse = 21,
+    OpJump = 22,
+    OpLoop = 23,
 }
 
 /// We need to convert `u8` to `OpCode`. Implementing `TryFrom` makes sense because `u8` can
@@ -83,6 +86,9 @@ impl TryFrom<u8> for OpCode {
             18 => Ok(Self::OpSetGlobal),
             19 => Ok(Self::OpGetLocal),
             20 => Ok(Self::OpSetLocal),
+            21 => Ok(Self::OpJumpIfFalse),
+            22 => Ok(Self::OpJump),
+            23 => Ok(Self::OpLoop),
             _ => Err(ChunkError::InvalidOpCode(value)),
         }
     }
