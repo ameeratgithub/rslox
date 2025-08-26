@@ -9,7 +9,13 @@
             "request": "launch",
             "name": "Debug unit tests in library 'rslox'",
             "cargo": {
-                "args": ["test", "--no-run", "--lib", "--package=rslox"],
+                "args": [
+                    "test",
+                    "compiler::tests::test_function_declaration",
+                    "--no-run",
+                    "--lib",
+                    "--package=rslox"
+                ],
                 "filter": {
                     "name": "rslox",
                     "kind": "lib"
@@ -23,23 +29,27 @@
             "request": "launch",
             "name": "Debug executable 'rslox'",
             "cargo": {
-                "args": ["build", "--bin=rslox", "--package=rslox"],
+                "args": [
+                    "run",
+                    "+nightly",
+                    "miri",
+                    "--bin=rslox",
+                    "--package=rslox"
+                ],
                 "filter": {
                     "name": "rslox",
                     "kind": "bin"
                 }
             },
-            "args": [
-                "--file=lox/loops.lox"
-            ],
+            "args": ["--file=lox/functions.lox"],
             "cwd": "${workspaceFolder}"
         },
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Debug unit tests in executable 'rslox'",
+            "name": "Debug compiler::tests",
             "cargo": {
-                "args": ["test", "--no-run", "--bin=rslox", "--package=rslox"],
+                "args": ["test", "compiler::tests", "--lib"],
                 "filter": {
                     "name": "rslox",
                     "kind": "bin"
@@ -90,13 +100,13 @@
             "request": "launch",
             "name": "Debug example 'cli'",
             "cargo": {
-                "args": ["build", "--example=cli", "--package=rslox"],
+                "args": ["build","--features=debug_trace_execution", "--example=cli", "--package=rslox"],
                 "filter": {
                     "name": "cli",
                     "kind": "example"
                 }
             },
-            "args": [],
+            "args": ["--file=lox/functions.lox"],
             "cwd": "${workspaceFolder}"
         },
         {

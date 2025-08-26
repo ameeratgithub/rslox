@@ -11,10 +11,68 @@ use crate::debug::Debug;
 
 use crate::{
     chunk::{Chunk, OpCode},
-    compiler::CompilerError,
-    value::{Object, ObjectNode, Value},
-    vm::constants::STACK_MAX,
+    compiler::errors::CompilerError,
+    constants::FRAMES_MAX,
+    value::{FunctionObject, Object, ObjectNode, Value},
 };
+
+pub struct CallFrame {
+    function: FunctionObject,
+    ip_offset: usize,
+    slots: Vec<Value>,
+}
+
+impl CallFrame {
+    pub fn new(fun_obj: FunctionObject, ip_offset: usize, slots: Vec<Value>) -> Self {
+        Self {
+            function: fun_obj,
+            ip_offset,
+            slots,
+        }
+    }
+
+    fn add_at_slot(&mut self, value: Value, index: usize) {
+        if self.slots.len() - 1 >= index {
+            self.slots[index] = value;
+        } else {
+            self.slots.push(value);
+        }
+    }
+
+    fn read_byte(&mut self) -> u8 {
+        // First byte should be the instruction byte of the code
+        let instruction_byte = self.function.chunk.code[self.ip_offset];
+        // Increment instruction pointer after reading the byte
+        self.ip_offset += 1;
+
+        instruction_byte
+    }
+
+    fn read_u16(&mut self) -> u16 {
+        // Read bytes
+        let bytes = &self.function.chunk.code[self.ip_offset..self.ip_offset + 2];
+        // Advance two bytes
+        self.ip_offset += 2;
+        // Convert to u16
+        u16::from_be_bytes([bytes[0], bytes[1]])
+    }
+
+    /// Reads constant from constant pool
+    fn read_constant(&mut self) -> Value {
+        // We don't directly store constants on bytecode. Bytecode has the
+        // index/offset of constant. We get that index from bytecode.
+        let constant_position = self.function.chunk.code[self.ip_offset];
+        // Gets the value from constant pool.
+        // This is not to be used in production. `constant_position` implies that there
+        // would be maximum 256 constants, which should not be the case.
+        // Multi-byte operations needed to be introduced to handle that
+        let constant: Value = self.function.chunk.constants[constant_position as usize].clone();
+        // increment instruction pointer by 1, because we've consumed 1 byte
+        self.ip_offset += 1;
+        // return the value
+        constant
+    }
+}
 
 /// Errors related to virtual machine
 pub enum VMError {
@@ -40,16 +98,13 @@ impl std::fmt::Display for VMError {
 pub struct VM {
     /// A mutable reference to the `Chunk`.
     pub chunk: Chunk,
-    /// Instruction pointer offset.
-    ip_offset: usize,
     /// Stack to handle variables. Fixed stack size for simplicity, but has some limitations
-    stack: [Value; STACK_MAX],
-    /// A pointer to check where we're on our stack. If value is 0, stack is empty.
-    stack_top: usize,
+    pub stack: Vec<Value>,
     /// A linked list to track Objects stored on heap, mainly used for garbage collection. Linked list is not the best data structure used for garbage collection. Just keeping it simple for now.
     pub objects: ObjectNode,
     /// A Datastructure, also known as HashTable, to store global variables for faster insertion and lookup.
     globals: HashMap<String, Value>,
+    pub frames: Vec<CallFrame>,
 }
 
 impl VM {
@@ -57,16 +112,13 @@ impl VM {
     pub fn new() -> Self {
         Self {
             chunk: Chunk::new(),
-            // Offset from where vm would start executing.
-            ip_offset: 0,
             // All values should be nil/empty by default
-            stack: [const { Value::new_nil() }; STACK_MAX],
-            // This would be one step ahead of the current element.
-            stack_top: 0,
+            stack: Vec::new(),
             // No objects when vm is initialized
             objects: None,
             // No global variables when vm is initialized.
             globals: HashMap::new(),
+            frames: Vec::with_capacity(FRAMES_MAX),
         }
     }
 
@@ -87,9 +139,23 @@ impl VM {
 
     /// Empties the stack and resets the top to '0'
     pub fn reset_stack(&mut self) {
-        // All the values should be `Nil` by default
-        self.stack = [const { Value::new_nil() }; STACK_MAX as usize];
-        self.stack_top = 0;
+        self.frames = vec![];
+    }
+
+    /// Responsible for freeing the memory allocated by runtime objects, such as string
+    pub fn free_objects(&mut self) {
+        // Iterate over the list of objects
+        while let Some(obj) = self.objects {
+            // Unsafe is required to dereference the raw pointer
+            unsafe {
+                // Assign `next` node to `self.objects`
+                self.objects = (*obj.as_ptr()).next;
+                // `Box` will automatically free the memory
+                // Only free after pointing `self.objects` to `next` of current object
+                // Otherwise `self.objects` will point to freed memory
+                let _ = Box::from_raw(obj.as_ptr());
+            }
+        }
     }
 
     /// This method iterates over linked list and remove a node if pointer matches. Useful method when extracting a value from a raw pointer and that raw pointer needs to be dropped.
@@ -125,52 +191,22 @@ impl VM {
         }
     }
 
-    /// Responsible for freeing the memory allocated by runtime objects, such as string
-    pub fn free_objects(&mut self) {
-        // Iterate over the list of objects
-        while let Some(obj) = self.objects {
-            // Unsafe is required to dereference the raw pointer
-            unsafe {
-                // Assign `next` node to `self.objects`
-                self.objects = (*obj.as_ptr()).next;
-                // `Box` will automatically free the memory
-                // Only free after pointing `self.objects` to `next` of current object
-                // Otherwise `self.objects` will point to freed memory
-                let _ = Box::from_raw(obj.as_ptr());
-            }
-        }
-    }
-
     // Push the value to stack, and increments the top
     pub fn push(&mut self, value: Value) {
-        self.stack[self.stack_top] = value;
-        self.stack_top += 1;
+        // self.stack[self.stack_top] = value;
+        self.stack.push(value);
+        // self.stack_top += 1;
     }
 
     // Pop the value from stack, and decrements the top
     pub fn pop(&mut self) -> Option<Value> {
         // Decrement top before accessing the element because top is one step ahead
-        self.stack_top = self.stack_top.checked_sub(1)?;
+        // self.stack_top = self.stack_top.checked_sub(1)?;
 
         // Returning the top value from the stak. No need to delete value,
         // just manage the stack pointer (stack_top)
-        Some(self.stack[self.stack_top].clone())
-    }
-
-    /// Reads constant from constant pool
-    fn read_constant(&mut self) -> Value {
-        // We don't directly store constants on bytecode. Bytecode has the
-        // index/offset of constant. We get that index from bytecode.
-        let constant_position = self.chunk.code[self.ip_offset];
-        // Gets the value from constant pool.
-        // This is not to be used in production. `constant_position` implies that there
-        // would be maximum 256 constants, which should not be the case.
-        // Multi-byte operations needed to be introduced to handle that
-        let constant: Value = self.chunk.constants[constant_position as usize].clone();
-        // increment instruction pointer by 1, because we've consumed 1 byte
-        self.ip_offset += 1;
-        // return the value
-        constant
+        // Some(self.stack[self.stack_top].clone())
+        self.stack.pop()
     }
 
     /// This function concatenate strings and manage memory at runtime while doing so. If there are two literal strings in bytecode, concatenation will allocate memory for result, at runtime, and that value should be garbage collected
@@ -302,13 +338,9 @@ impl VM {
         Ok(())
     }
 
-    fn read_byte(&mut self) -> u8 {
-        // First byte should be the instruction byte of the code
-        let instruction_byte = self.chunk.code[self.ip_offset];
-        // Increment instruction pointer after reading the byte
-        self.ip_offset += 1;
-
-        instruction_byte
+    pub fn current_frame(&mut self) -> &mut CallFrame {
+        let top_index = self.frames.len() - 1;
+        &mut self.frames[top_index]
     }
 
     pub fn run(&mut self) -> Result<(), VMError> {
@@ -317,16 +349,17 @@ impl VM {
             #[cfg(feature = "debug_trace_execution")]
             {
                 print!("          ");
-                for slot in 0..self.stack_top {
+                for value in &self.stack {
                     print!("[ ");
-                    print!("{}", self.stack[slot]);
+                    print!("{}", value);
                     print!(" ]");
                 }
                 println!("");
-                Debug::dissassemble_instruction(&self.chunk, self.ip_offset);
+                let offset = self.current_frame().ip_offset;
+                Debug::dissassemble_instruction(&self.current_frame().function.chunk, offset);
             }
 
-            let instruction_byte = self.read_byte();
+            let instruction_byte = self.current_frame().read_byte();
 
             // Try to convert that byte to `OpCode` enum
             if let Ok(opcode) = OpCode::try_from(instruction_byte) {
@@ -335,8 +368,17 @@ impl VM {
                 match opcode {
                     // It means this is final instruction in the byte code
                     OpCode::OpReturn => {
-                        // Exit interpreter
-                        return Ok(());
+                        let result = self.pop().unwrap();
+
+                        if self.frames.len() - 1 == 0 {
+                            self.pop();
+                            return Ok(());
+                        }
+
+                        // self.stack_top = self.current_frame().ip_offset;
+                        self.push(result);
+                        // self.free_objects();
+                        self.frames.pop();
                     }
                     // Usually used for expression statements. These statements may produce a result but this result will be popped because expression statements are only used for side effects.
                     OpCode::OpPop => {
@@ -351,17 +393,19 @@ impl VM {
                         println!("{}", v);
                     }
                     OpCode::OpGetLocal => {
-                        let slot = self.read_byte();
-                        self.push(self.stack[slot as usize].clone());
+                        let slot = self.current_frame().read_byte();
+                        let val = self.current_frame().slots[slot as usize].clone();
+                        self.push(val);
                     }
                     OpCode::OpSetLocal => {
-                        let slot = self.read_byte();
-                        self.stack[slot as usize] = self.stack[self.stack_top - 1].clone();
+                        let slot = self.current_frame().read_byte();
+                        let val = self.stack[self.stack.len() - 1].clone();
+                        self.current_frame().add_at_slot(val, slot as usize);
                     }
                     // Define a global variable and insert into `HashMap`
                     OpCode::OpDefineGlobal => {
                         // Read the variable name from bytecode and convert it to literal string
-                        let name = self.read_constant().as_literal_string();
+                        let name = self.current_frame().read_constant().as_literal_string();
                         // If variable is not initilized, default value stored on stack should be `Nil`. In both cases, we're expecting value on the stack.
                         let value= self.pop().ok_or_else(||
                             // Return error if value on stack is not found
@@ -372,7 +416,7 @@ impl VM {
                     // Gets the value of variable and pushes onto the stack
                     OpCode::OpGetGlobal => {
                         // Read the variable name from bytecode and convert it to literal string
-                        let name = self.read_constant().as_literal_string();
+                        let name = self.current_frame().read_constant().as_literal_string();
                         // Get the global variable from `HashMap`
                         let value = self.globals.get(&name).cloned().ok_or_else(|| {
                             // Variable doesn't exist. Return an error.
@@ -386,9 +430,9 @@ impl VM {
                     // Sets value to already declared global variable
                     OpCode::OpSetGlobal => {
                         // Read the variable name from bytecode and convert it to literal string
-                        let name = self.read_constant().as_literal_string();
+                        let name = self.current_frame().read_constant().as_literal_string();
                         // Check for underflow. If `stack_top` is less than zero after subtraction, return error
-                        let value_index = self.stack_top.checked_sub(1).ok_or_else(|| {
+                        let value_index = self.stack.len().checked_sub(1).ok_or_else(|| {
                             self.construct_runtime_error(format_args!("Expected value on stack"))
                         })?;
                         // Clone value from the stack. We just want to store it in HashMap, so no need to pop or replace value.
@@ -407,7 +451,7 @@ impl VM {
                     // Read constant from the constant pool
                     OpCode::OpConstant => {
                         // Get constant value from constant pool
-                        let constant = self.read_constant();
+                        let constant = self.current_frame().read_constant();
                         // Push that constant onto the stack
                         self.push(constant);
                     }
@@ -495,37 +539,83 @@ impl VM {
                     }
                     OpCode::OpJumpIfFalse => {
                         // Reads the two bytes of distance being jumped
-                        let offset = self.read_u16();
+                        let offset = self.current_frame().read_u16();
                         // Result of the condition
-                        let if_condition = &self.stack[self.stack_top - 1];
+                        let if_condition = &self.stack[self.stack.len() - 1];
                         // If condition is false, then perform the jump, other wise continue executing the statements
                         if if_condition.clone().is_falsey() {
-                            self.ip_offset += offset as usize;
+                            self.current_frame().ip_offset += offset as usize;
                         }
                     }
                     OpCode::OpJump => {
                         // Read distance to jump
-                        let offset = self.read_u16();
+                        let offset = self.current_frame().read_u16();
                         // We don't check condition before jumping because else doesn't have any condition. If this instruction gets executed, just perform jump. When generating bytecode for if condition, when if condition is false, jump has to be immediately after this opcode (total 3 bytes). Otherwise it will get messy.
-                        self.ip_offset += offset as usize;
+                        self.current_frame().ip_offset += offset as usize;
                     }
                     OpCode::OpLoop => {
-                        let offset = self.read_u16();
-                        self.ip_offset -= offset as usize;
+                        let offset = self.current_frame().read_u16();
+                        self.current_frame().ip_offset -= offset as usize;
+                    }
+                    OpCode::OpCall => {
+                        let arg_count = self.current_frame().read_byte();
+                        let callee_index = self.stack.len() - (arg_count as usize) - 1;
+                        let callee = self.stack[callee_index].clone();
+                        let fun_obj = callee.as_function_object();
+                        self.stack[callee_index] =
+                            Value::from_runtime_function(fun_obj.clone(), self)?;
+                        let callee_runtime = Value::from_runtime_function(fun_obj, self)?;
+                        self.call_value(callee_runtime, arg_count)?;
                     }
                 }
             }
         }
     }
 
-    fn read_u16(&mut self) -> u16 {
-        // Read bytes
-        let bytes = &self.chunk.code[self.ip_offset..self.ip_offset + 2];
-        // Advance two bytes
-        self.ip_offset += 2;
-        // Convert to u16
-        u16::from_be_bytes([bytes[0], bytes[1]])
+    fn call_value(&mut self, callee: Value, arg_count: u8) -> Result<(), VMError> {
+        if callee.is_function() {
+            let fun_obj_ref = callee.as_object_ref();
+            self.remove_object_pointer(fun_obj_ref);
+
+            let function_object = callee.as_function_object();
+            return self.call(function_object, arg_count);
+        }
+
+        Err(self.construct_runtime_error(format_args!("Can only call functions and classes")))
     }
+
+    pub fn call(&mut self, function: FunctionObject, arg_count: u8) -> Result<(), VMError> {
+        let arity = function.arity as u8;
+
+        if arg_count != arity {
+            let error = self.construct_runtime_error(format_args!(
+                "Expected {} arguments but got {}.",
+                arity, arg_count
+            ));
+            return Err(error);
+        }
+
+        if self.frames.len() == FRAMES_MAX {
+            let error = self.construct_runtime_error(format_args!("Stack overflow."));
+            return Err(error);
+        }
+
+        let starting_index = self.stack.len() - (arg_count as usize) - 1;
+        let slots = self.stack[starting_index..].to_vec();
+        
+        let frame = CallFrame::new(function, 0, slots);
+        self.frames.push(frame);
+        Ok(())
+    }
+
+    // fn read_u16(&mut self) -> u16 {
+    //     // Read bytes
+    //     let bytes = &self.chunk.code[self.ip_offset..self.ip_offset + 2];
+    //     // Advance two bytes
+    //     self.ip_offset += 2;
+    //     // Convert to u16
+    //     u16::from_be_bytes([bytes[0], bytes[1]])
+    // }
 
     /// Show items in garbadge collection
     #[cfg(feature = "debug_trace_execution")]
@@ -563,18 +653,22 @@ impl VM {
     /// It gets dynamic arguments, and constructs proper error
     fn construct_runtime_error(&mut self, arguments: Arguments) -> VMError {
         // Instruction is one step behind the current offset, so subtracting 1
-        let instruction_index = self.ip_offset.checked_sub(1).and_then(|idx| {
-            // We want to get line number from index so this check is important
-            if idx < self.chunk.lines.len() {
-                Some(idx)
-            } else {
-                None
-            }
-        });
+        let instruction_index = self
+            .current_frame()
+            .ip_offset
+            .checked_sub(1)
+            .and_then(|idx| {
+                // We want to get line number from index so this check is important
+                if idx < self.current_frame().function.chunk.lines.len() {
+                    Some(idx)
+                } else {
+                    None
+                }
+            });
 
         let line_info = if let Some(idx) = instruction_index {
             // Get line number of the current instruction
-            self.chunk.lines[idx]
+            self.current_frame().function.chunk.lines[idx]
         } else {
             -1
         };
@@ -587,9 +681,22 @@ impl VM {
             // Invalid line number, show ip_offset
             format!(
                 "[line unknown] in bytecode (VM IP:{}): {}",
-                self.ip_offset, message
+                self.current_frame().ip_offset,
+                message
             )
         };
+
+        for frame in self.frames.iter().rev() {
+            let function = &frame.function;
+            let instruction = frame.ip_offset - function.chunk.code.len() - 1;
+            print!("[line %d] in {}", function.chunk.lines[instruction]);
+
+            if let Some(name) = function.name.as_ref() {
+                println!("{}()", name);
+            } else {
+                println!("script");
+            }
+        }
 
         // Error occured, reset stack.
         self.reset_vm();

@@ -57,6 +57,7 @@ pub enum OpCode {
     OpJumpIfFalse = 21,
     OpJump = 22,
     OpLoop = 23,
+    OpCall = 24,
 }
 
 /// We need to convert `u8` to `OpCode`. Implementing `TryFrom` makes sense because `u8` can
@@ -89,11 +90,13 @@ impl TryFrom<u8> for OpCode {
             21 => Ok(Self::OpJumpIfFalse),
             22 => Ok(Self::OpJump),
             23 => Ok(Self::OpLoop),
+            24 => Ok(Self::OpCall),
             _ => Err(ChunkError::InvalidOpCode(value)),
         }
     }
 }
 
+#[derive(Debug, Clone, PartialEq)]
 /// This actually is a data structure to handle a series of bytes
 /// Can have different fields and associated functions to store bytes
 pub struct Chunk {

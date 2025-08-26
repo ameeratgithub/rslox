@@ -1,15 +1,20 @@
 use std::{
+    fmt::Display,
     ops::{Add, Div, Mul, Neg, Not, Sub},
     ptr::NonNull,
 };
 
-use crate::vm::{VM, VMError};
+use crate::{
+    chunk::Chunk,
+    vm::{VM, VMError},
+};
 
 #[derive(Debug, Clone, PartialEq)]
 /// Type to store object types and associated data
 pub enum ObjectType {
     /// Stores owned pointer to the String allocated on heap
     String(Box<String>),
+    Function(Box<FunctionObject>),
 }
 
 /// `Display` trait implementation to display `ObjectType`s nicely
@@ -20,7 +25,41 @@ impl std::fmt::Display for ObjectType {
                 // Display string values in double quotes
                 write!(f, "{s}")
             }
+            Self::Function(fun) => {
+                write!(f, "{fun}")
+            }
         }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct FunctionObject {
+    pub arity: i32,
+    pub chunk: Chunk,
+    pub name: Option<String>,
+}
+
+impl Display for FunctionObject {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if let Some(n) = self.name.as_ref() {
+            write!(f, "<fn {n}>")
+        } else {
+            write!(f, "<script>")
+        }
+    }
+}
+
+impl FunctionObject {
+    pub fn new() -> Self {
+        Self {
+            arity: 0,
+            chunk: Self::init_chunk(),
+            name: None,
+        }
+    }
+
+    fn init_chunk() -> Chunk {
+        Chunk::new()
     }
 }
 
@@ -75,9 +114,18 @@ impl Object {
     }
 
     /// Creates `Object` of type `String` on runtime.
-    pub fn from_runtime_str(value: String, vm: &mut VM) -> Result<ObjectPointer, VMError> {
+    pub fn from_str(value: String, vm: &mut VM) -> Result<ObjectPointer, VMError> {
         // Create an owned pointer to string, not object it self, and pass to `with_vm` function. This distinction is important because ObjectType::String owns the string value, but this method returns the pointer to the object created.
         Self::with_vm(ObjectType::String(Box::new(value)), vm)
+    }
+
+    /// Creates `Object` of type `FunctionObject` at runtime.
+    pub fn from_function_object(
+        fun_obj: FunctionObject,
+        vm: &mut VM,
+    ) -> Result<ObjectPointer, VMError> {
+        // Create an owned pointer to string, not object it self, and pass to `with_vm` function. This distinction is important because ObjectType::String owns the string value, but this method returns the pointer to the object created.
+        Self::with_vm(ObjectType::Function(Box::new(fun_obj)), vm)
     }
 }
 
@@ -127,7 +175,12 @@ pub enum Value {
 impl Value {
     /// Creates a `Value` object from the `String`. Since it's created at runtime, it'll have `Obj` variant
     pub fn from_runtime_str(value: String, vm: &mut VM) -> Result<Value, VMError> {
-        let obj_pointer = Object::from_runtime_str(value, vm)?;
+        let obj_pointer = Object::from_str(value, vm)?;
+        Ok(Self::Obj(obj_pointer))
+    }
+    /// Creates a `Value` object from the `FunctionObject`. Since it's created at runtime, it'll have `Obj` variant
+    pub fn from_runtime_function(value: FunctionObject, vm: &mut VM) -> Result<Value, VMError> {
+        let obj_pointer = Object::from_function_object(value, vm)?;
         Ok(Self::Obj(obj_pointer))
     }
 
@@ -178,8 +231,13 @@ impl Value {
             _ => unreachable!(),
         }
     }
+
     /// Destroys the value object, because `self` is moved, and gets the inner `String` created at runtime
     pub fn as_object_string(self) -> String {
+        self.into()
+    }
+    /// Destroys the value object, because `self` is moved, and gets the inner `String` created at runtime
+    pub fn as_function_object(self) -> FunctionObject {
         self.into()
     }
 
@@ -201,6 +259,16 @@ impl Value {
         unsafe {
             match self {
                 Self::Obj(obj) if matches!((obj.as_ref()).ty, ObjectType::String(_)) => true,
+                _ => false,
+            }
+        }
+    }
+
+    /// Checks if the string is of type `Obj`, and is created at runtime
+    pub fn is_function(&self) -> bool {
+        unsafe {
+            match self {
+                Self::Obj(obj) if matches!((obj.as_ref()).ty, ObjectType::Function(_)) => true,
                 _ => false,
             }
         }
@@ -265,10 +333,37 @@ impl Into<String> for Value {
                 match (boxed_obj).ty {
                     // If Object is of type string, just move the string out of the box
                     ObjectType::String(s) => *s,
+                    _ => unreachable!(),
                 }
             },
             // If string is Literal, created at compile time, just move out of the enum
             Self::Literal(Literal::String(s)) => s,
+            // Can't handle errors at this level, errors are handled on compiler level
+            // for detailed output
+            _ => unreachable!(),
+        }
+    }
+}
+/// Implements `Into` trait to extract `Obj` from `Value::Obj`
+impl Into<FunctionObject> for Value {
+    fn into(self) -> FunctionObject {
+        match self {
+            // Function is created at runtime, some unsafe code is needed to handle raw pointers.
+            // Before calling `.into()`, it should be checked that value is indeed a `FunctionObject`.
+            Self::Obj(n) => unsafe {
+                // Get the raw pointer to the `FunctionObject`
+                let raw_ptr = n.as_ptr();
+                // Convert raw pointer to the owned pointer. It's unsafe operation. It's important to extract value from the `NonNull` pointer.
+                // --------- IMPORTANT NOTE ---------
+                // This gets the inner value from pointer and moves it to owned pointer. This will invalidate existing pointers, such as stored in `vm.objects`. Moving into owned `FunctionObject` will require pointers to be removed manually from the list
+                // --------- /IMPORTANT NOTE --------
+                let boxed_obj = Box::from_raw(raw_ptr);
+                match (boxed_obj).ty {
+                    // If Object is of type `FunctionObject`, just move the `FunctionObject` out of the box
+                    ObjectType::Function(fun) => *fun,
+                    _ => unreachable!(),
+                }
+            },
             // Can't handle errors at this level, errors are handled on compiler level
             // for detailed output
             _ => unreachable!(),
@@ -294,6 +389,17 @@ impl From<f64> for Value {
 impl From<String> for Value {
     fn from(value: String) -> Self {
         Self::Literal(Literal::String(value))
+    }
+}
+
+/// Implements `From` trait to convert from `Object` to `Value::Obj`
+impl From<FunctionObject> for Value {
+    fn from(value: FunctionObject) -> Self {
+        let object_type = ObjectType::Function(Box::new(value));
+        let object = Object::new(object_type);
+        // `unwrap()` shouldn't be used here. Alternatively consider using `Option<NonNull<Object>>` in `Value::Obj`
+        let pointer = NonNull::new(Box::into_raw(Box::new(object))).unwrap();
+        Self::Obj(pointer)
     }
 }
 

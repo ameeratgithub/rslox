@@ -62,6 +62,7 @@ impl Debug {
                 OpCode::OpJump => Debug::jump_instruction("OpJump", 1, chunk, offset),
                 OpCode::OpJumpIfFalse => Debug::jump_instruction("OpJumpIfFalse", 1, chunk, offset),
                 OpCode::OpLoop => Debug::jump_instruction("OpLoop", -1, chunk, offset),
+                OpCode::OpCall => Debug::byte_instruction("OpCall", chunk, offset),
             }
         } else {
             // Print invalid instruction error
@@ -92,7 +93,7 @@ impl Debug {
 
     fn byte_instruction(name: &str, chunk: &Chunk, offset: usize) -> usize {
         let slot = chunk.code[offset + 1];
-        print!("{: <16} {: >4} '", name, slot);
+        println!("{: <16} {: >4}", name, slot);
         offset + 2
     }
 

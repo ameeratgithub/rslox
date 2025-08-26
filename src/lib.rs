@@ -1,13 +1,15 @@
 use std::process;
 
 use crate::{
-    compiler::Compiler,
+    compiler::{CompilationContext, CompilerState, types::FunctionType},
+    value::{FunctionObject, Value},
     vm::{VM, VMError},
 };
 
 pub mod chunk;
 pub mod cli;
 pub mod compiler;
+pub mod constants;
 #[cfg(feature = "debug_trace_execution")]
 pub mod debug;
 pub mod scanner;
@@ -34,15 +36,17 @@ fn execute(code: &str, vm: &mut VM) {
 // A separate function which returns errors. Can be helpfull when writing tests
 // to test against certain types of errors
 pub fn interpret(code: &str, vm: &mut VM) -> Result<(), VMError> {
-    // let mut chunk = Chunk::new();
-    // It takes source code string and chunk variable. Updates the chunk variable
-    // if compilation is successful
-    let mut compiler = Compiler::new(code, &mut vm.chunk);
-    // Start compiling the code, if it returns error, just propagate the error.
-    // If successful, updates the `self.chunk` field.
-    compiler.compile().map_err(|e| VMError::CompileError(e))?;
+    let mut context = CompilationContext::new(code);
 
-    // let mut vm: VM<'_> = VM::new();
-    // vm.set_chunk(chunk);
+    let function_type = FunctionType::Script(Box::new(FunctionObject::new()));
+    context.push(CompilerState::new(function_type));
+    let top_function = context.compile().map_err(|e| VMError::CompileError(e))?;
+
+    // Value on stack should be garbage collected
+    let stack_value= Value::from_runtime_function(top_function.clone(), vm)?;
+    vm.push(stack_value);
+    
+    let call_value: Value = top_function.into();
+    vm.call(call_value.as_function_object(), 0)?;
     vm.interpret()
 }
