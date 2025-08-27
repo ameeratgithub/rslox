@@ -18,6 +18,7 @@ impl<'a> CompilationContext<'a> {
             .ok_or_else(|| self.construct_token_error(false, "Expected variable name"))?;
 
         self.declare_local_variable()?;
+
         if self.compiler().scope_depth > 0 {
             // Dummy table index
             return Ok(0);
@@ -36,14 +37,14 @@ impl<'a> CompilationContext<'a> {
 
         let name = self.parser.previous.clone().ok_or(error)?;
 
-        for i in (0..self.compiler().local_count).rev() {
+        for local in self.compiler().locals.iter().rev() {
             let scope_depth = self.compiler().scope_depth;
-            let local = &self.compiler().locals[i as usize];
+            // let local = &self.compiler().locals[i as usize];
             if local.depth != -1 && local.depth < scope_depth {
                 break;
             }
-            let name = &local.name.clone();
-            if self.are_identifiers_equal(&name, name) {
+            // let local_name = &local.name.clone();
+            if self.are_identifiers_equal(&name, &local.name) {
                 return Err(self.construct_token_error(
                     false,
                     "Already a variable with this name in this scope.",
@@ -62,8 +63,8 @@ impl<'a> CompilationContext<'a> {
     }
 
     fn resolve_local(&mut self, name: &Token) -> Result<i32, CompilerError> {
-        for i in (0..self.compiler().local_count).rev() {
-            let local = &self.compiler().locals[i as usize];
+        for (i, local) in self.compiler().locals.iter().enumerate() {
+            // let local = &self.compiler().locals[i as usize];
             if self.are_identifiers_equal(name, &local.name) {
                 if local.depth == -1 {
                     return Err(self.construct_token_error(
@@ -71,21 +72,21 @@ impl<'a> CompilationContext<'a> {
                         "Can't read local variable in its own initializer",
                     ));
                 }
-                return Ok(i);
+                return Ok(i as i32);
             }
         }
         Ok(-1)
     }
 
     fn add_local_variable(&mut self, name: Token) -> Result<(), CompilerError> {
-        if self.compiler().local_count == UINT8_COUNT as i32 {
+        if self.compiler().locals.len() == UINT8_COUNT as usize {
             return Err(self.construct_token_error(false, "Too many local variables in scope"));
         }
 
         let local = Local { name, depth: -1 };
-        let index = self.compiler().local_count as usize;
-        self.compiler_mut().locals[index] = local;
-        self.compiler_mut().local_count += 1;
+        // let index = self.compiler().locals.len() as usize;
+        self.compiler_mut().locals.push(local);
+        // self.compiler_mut().local_count += 1;
 
         Ok(())
     }
@@ -96,12 +97,12 @@ impl<'a> CompilationContext<'a> {
         }
 
         let scope_depth = self.compiler().scope_depth;
-        let index = (self.compiler().local_count - 1) as usize;
+        let index = (self.compiler().locals.len() - 1) as usize;
         let local = &mut self.compiler_mut().locals[index];
         local.depth = scope_depth;
     }
 
-    /// Writes bytecode to define global variable
+    /// Writes bytecode to define variable
     pub(super) fn define_variable(&mut self, global: u8) -> Result<(), CompilerError> {
         if self.compiler().scope_depth > 0 {
             self.mark_initialized();
@@ -128,6 +129,7 @@ impl<'a> CompilationContext<'a> {
         let arg = self.resolve_local(name)?;
         let variable_offset;
         if arg != -1 {
+            // It's a local variable. `arg` is offset/index in `locals` vector 
             variable_offset = arg as u8;
             get_opcode = OpCode::OpGetLocal;
             set_opcode = OpCode::OpSetLocal;

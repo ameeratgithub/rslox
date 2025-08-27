@@ -184,12 +184,13 @@ impl<'a> CompilationContext<'a> {
     fn end_scope(&mut self) -> Result<(), CompilerError> {
         self.compiler_mut().scope_depth -= 1;
 
-        while self.compiler().local_count > 0
-            && self.compiler().locals[(self.compiler().local_count - 1) as usize].depth
+        while self.compiler().locals.len() > 0
+            && self.compiler().locals[(self.compiler().locals.len() - 1) as usize].depth
                 > self.compiler().scope_depth
         {
             self.emit_byte(OpCode::OpPop as u8)?;
-            self.compiler_mut().local_count -= 1;
+            // self.compiler_mut().local_count -= 1;
+            self.compiler_mut().locals.pop();
         }
 
         Ok(())
@@ -268,7 +269,7 @@ impl<'a> CompilationContext<'a> {
 pub struct CompilerState {
     locals: Vec<Local>,
     // chunk: Chunk,
-    local_count: i32,
+    // local_count: i32,
     scope_depth: i32,
     function_type: FunctionType,
 }
@@ -276,26 +277,26 @@ pub struct CompilerState {
 impl CompilerState {
     /// Returns a fresh instance of `Compiler`
     pub fn new(function_type: FunctionType) -> Self {
-        let mut locals = Vec::with_capacity(UINT8_COUNT);
-        let mut local_count: i32 = 0;
+        let locals = Vec::with_capacity(UINT8_COUNT);
+        // let mut local_count: i32 = 0;
 
-        locals.push(Local {
-            name: Token {
-                ty: TokenType::String,
-                start: 0,
-                length: 0,
-                line: 0,
-            },
-            depth: 0,
-        });
+        // locals.push(Local {
+        //     name: Token {
+        //         ty: TokenType::String,
+        //         start: 0,
+        //         length: 0,
+        //         line: 0,
+        //     },
+        //     depth: 0,
+        // });
 
-        local_count += 1;
+        // local_count += 1;
 
         Self {
             // chunk: Chunk::new(),
             locals,
             scope_depth: 0,
-            local_count,
+            // local_count,
             function_type,
         }
     }

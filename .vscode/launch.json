@@ -11,7 +11,7 @@
             "cargo": {
                 "args": [
                     "test",
-                    "compiler::tests::test_function_declaration",
+                    "compiler::tests",
                     "--no-run",
                     "--lib",
                     "--package=rslox"

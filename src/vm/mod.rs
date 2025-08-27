@@ -10,7 +10,7 @@ use std::{collections::HashMap, fmt::Arguments, ptr::NonNull};
 use crate::debug::Debug;
 
 use crate::{
-    chunk::{Chunk, OpCode},
+    chunk::OpCode,
     compiler::errors::CompilerError,
     constants::FRAMES_MAX,
     value::{FunctionObject, Object, ObjectNode, Value},
@@ -19,25 +19,26 @@ use crate::{
 pub struct CallFrame {
     function: FunctionObject,
     ip_offset: usize,
-    slots: Vec<Value>,
+    starting_offset: usize, // slots: Vec<Value>,
 }
 
 impl CallFrame {
-    pub fn new(fun_obj: FunctionObject, ip_offset: usize, slots: Vec<Value>) -> Self {
+    pub fn new(fun_obj: FunctionObject, ip_offset: usize, starting_offset: usize) -> Self {
         Self {
             function: fun_obj,
             ip_offset,
-            slots,
+            // slots,
+            starting_offset,
         }
     }
 
-    fn add_at_slot(&mut self, value: Value, index: usize) {
-        if self.slots.len() - 1 >= index {
-            self.slots[index] = value;
-        } else {
-            self.slots.push(value);
-        }
-    }
+    // fn add_at_slot(&mut self, value: Value, index: usize) {
+    //     if self.slots.len() - 1 >= index {
+    //         self.slots[index] = value;
+    //     } else {
+    //         self.slots.push(value);
+    //     }
+    // }
 
     fn read_byte(&mut self) -> u8 {
         // First byte should be the instruction byte of the code
@@ -96,8 +97,6 @@ impl std::fmt::Display for VMError {
 
 /// Data structure to handle a stack based virtual machine
 pub struct VM {
-    /// A mutable reference to the `Chunk`.
-    pub chunk: Chunk,
     /// Stack to handle variables. Fixed stack size for simplicity, but has some limitations
     pub stack: Vec<Value>,
     /// A linked list to track Objects stored on heap, mainly used for garbage collection. Linked list is not the best data structure used for garbage collection. Just keeping it simple for now.
@@ -111,7 +110,6 @@ impl VM {
     /// Returns a new instance of the VM
     pub fn new() -> Self {
         Self {
-            chunk: Chunk::new(),
             // All values should be nil/empty by default
             stack: Vec::new(),
             // No objects when vm is initialized
@@ -191,6 +189,13 @@ impl VM {
         }
     }
 
+    pub fn replace_or_push(&mut self, value: Value, index: usize) {
+        if self.stack.len() <= index {
+            self.push(value);
+        } else {
+            self.stack[index] = value;
+        }
+    }
     // Push the value to stack, and increments the top
     pub fn push(&mut self, value: Value) {
         // self.stack[self.stack_top] = value;
@@ -375,11 +380,10 @@ impl VM {
                             return Ok(());
                         }
 
-                        // self.stack_top = self.current_frame().ip_offset;
                         self.push(result);
-                        // self.free_objects();
                         self.frames.pop();
                     }
+
                     // Usually used for expression statements. These statements may produce a result but this result will be popped because expression statements are only used for side effects.
                     OpCode::OpPop => {
                         self.pop().ok_or_else(||
@@ -394,13 +398,14 @@ impl VM {
                     }
                     OpCode::OpGetLocal => {
                         let slot = self.current_frame().read_byte();
-                        let val = self.current_frame().slots[slot as usize].clone();
+                        let index = self.current_frame().starting_offset + slot as usize;
+                        let val = self.stack[index].clone();
                         self.push(val);
                     }
                     OpCode::OpSetLocal => {
                         let slot = self.current_frame().read_byte();
                         let val = self.stack[self.stack.len() - 1].clone();
-                        self.current_frame().add_at_slot(val, slot as usize);
+                        self.replace_or_push(val, slot as usize);
                     }
                     // Define a global variable and insert into `HashMap`
                     OpCode::OpDefineGlobal => {
@@ -600,10 +605,8 @@ impl VM {
             return Err(error);
         }
 
-        let starting_index = self.stack.len() - (arg_count as usize) - 1;
-        let slots = self.stack[starting_index..].to_vec();
-        
-        let frame = CallFrame::new(function, 0, slots);
+        let starting_index = self.stack.len() - (arg_count as usize);
+        let frame = CallFrame::new(function, 0, starting_index);
         self.frames.push(frame);
         Ok(())
     }

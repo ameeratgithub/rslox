@@ -2,3 +2,16 @@ fun areWeHavingItYet() {
     print "Yes we are!";
 }
 areWeHavingItYet();
+
+fun getFullName(firstName, lastName){
+    var fullName = firstName + " " + lastName;
+    return fullName;
+}
+print getFullName("Ameer", "Hamza");
+
+fun complexAddition(a,b,c) {
+  var d =  a + b;
+  var e = d + c;
+  return e;
+}
+print complexAddition(10 , 20, 30);
