@@ -31,18 +31,9 @@ impl CallFrame {
         Self {
             function,
             ip_offset,
-            // slots,
             starting_offset,
         }
     }
-
-    // fn add_at_slot(&mut self, value: Value, index: usize) {
-    //     if self.slots.len() - 1 >= index {
-    //         self.slots[index] = value;
-    //     } else {
-    //         self.slots.push(value);
-    //     }
-    // }
 
     fn read_byte(&mut self) -> u8 {
         // First byte should be the instruction byte of the code
@@ -226,19 +217,11 @@ impl VM {
     }
     // Push the value to stack, and increments the top
     pub fn push(&mut self, value: Value) {
-        // self.stack[self.stack_top] = value;
         self.stack.push(value);
-        // self.stack_top += 1;
     }
 
     // Pop the value from stack, and decrements the top
     pub fn pop(&mut self) -> Option<Value> {
-        // Decrement top before accessing the element because top is one step ahead
-        // self.stack_top = self.stack_top.checked_sub(1)?;
-
-        // Returning the top value from the stak. No need to delete value,
-        // just manage the stack pointer (stack_top)
-        // Some(self.stack[self.stack_top].clone())
         self.stack.pop()
     }
 
@@ -435,7 +418,8 @@ impl VM {
                     OpCode::OpSetLocal => {
                         let slot = self.current_frame().read_byte();
                         let val = self.stack[self.stack.len() - 1].clone();
-                        self.replace_or_push(val, slot as usize);
+                        let index = self.current_frame().starting_offset + slot as usize;
+                        self.replace_or_push(val, index);
                     }
                     // Define a global variable and insert into `HashMap`
                     OpCode::OpDefineGlobal => {
@@ -596,10 +580,6 @@ impl VM {
                         let arg_count = self.current_frame().read_byte();
                         let callee_index = self.stack.len() - (arg_count as usize) - 1;
                         let callee = self.stack[callee_index].clone();
-                        // let fun_obj = callee.as_function_object();
-                        // self.stack[callee_index] =
-                        //     Value::from_runtime_function(fun_obj.clone(), self)?;
-                        // let callee_runtime = Value::from_runtime_function(fun_obj, self)?;
                         self.call_value(callee, arg_count)?;
                     }
                 }
@@ -636,15 +616,6 @@ impl VM {
         self.frames.push(frame);
         Ok(())
     }
-
-    // fn read_u16(&mut self) -> u16 {
-    //     // Read bytes
-    //     let bytes = &self.chunk.code[self.ip_offset..self.ip_offset + 2];
-    //     // Advance two bytes
-    //     self.ip_offset += 2;
-    //     // Convert to u16
-    //     u16::from_be_bytes([bytes[0], bytes[1]])
-    // }
 
     /// Show items in garbadge collection
     #[cfg(feature = "debug_trace_execution")]

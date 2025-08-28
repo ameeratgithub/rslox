@@ -275,26 +275,9 @@ pub struct CompilerState {
 impl CompilerState {
     /// Returns a fresh instance of `Compiler`
     pub fn new(function_type: FunctionType) -> Self {
-        let locals = Vec::with_capacity(UINT8_COUNT);
-        // let mut local_count: i32 = 0;
-
-        // locals.push(Local {
-        //     name: Token {
-        //         ty: TokenType::String,
-        //         start: 0,
-        //         length: 0,
-        //         line: 0,
-        //     },
-        //     depth: 0,
-        // });
-
-        // local_count += 1;
-
         Self {
-            // chunk: Chunk::new(),
-            locals,
+            locals: Vec::with_capacity(UINT8_COUNT),
             scope_depth: 0,
-            // local_count,
             function_type,
         }
     }

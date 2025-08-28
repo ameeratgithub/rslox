@@ -1,13 +1,15 @@
-var marks = 84;
-
+var marks = 90;
+var grade;
 // else if clause is not currently supported
 if (marks >= 90){
-    print "A+ Grade";
+    grade = "A+ Grade";
 }
 else{
     if (marks>=85 and marks<90){
-        print "A Grade";
+        grade = "A Grade";
     } else{
-        print "You're not in top 2 grades";
+        grade = "You're not in top 2 grades";
     }
 }
+
+print grade;

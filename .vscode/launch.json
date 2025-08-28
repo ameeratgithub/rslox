@@ -100,13 +100,13 @@
             "request": "launch",
             "name": "Debug example 'cli'",
             "cargo": {
-                "args": ["build","--features=debug_trace_execution", "--example=cli", "--package=rslox"],
+                "args": ["build", "--example=cli", "--package=rslox"],
                 "filter": {
                     "name": "cli",
                     "kind": "example"
                 }
             },
-            "args": ["--file=lox/functions_2.lox"],
+            "args": ["--file=lox/scopes.lox"],
             "cwd": "${workspaceFolder}"
         },
         {

@@ -1,21 +1,19 @@
-fun getGradeFromMarks(){
+fun getGradeFromMarks(marks){
     var grade;
-//    // else if clause is not currently supported
-//    if (marks >= 90){
-//        grade = "A+ Grade";
-//    }
-//    else{
-//        if (marks>=85 and marks<90){
-//            grade = "A Grade";
-//        } else{
-//            grade = "You're not in top 2 grades";
-//        }
-//    }
-//
-//    return grade;
+    // else if clause is not currently supported
+    if (marks >= 90){
+        grade = "A+ Grade";
+    }
+    else{
+        if (marks>=85 and marks<90){
+            grade = "A Grade";
+        } else{
+            grade = "You're not in top 2 grades";
+        }
+    }
+    return grade;
 }
 
-getGradeFromMarks();
-getGradeFromMarks();
-getGradeFromMarks();
-// print getGradeFromMarks(90);
+print getGradeFromMarks(90);
+print getGradeFromMarks(85);
+print getGradeFromMarks(84);

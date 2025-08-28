@@ -120,9 +120,6 @@ impl<'a> CompilationContext<'a> {
     }
 
     fn named_variable(&mut self, name: &Token, can_assign: bool) -> Result<(), CompilerError> {
-        // Generate the bytecode for identifier
-        // let arg = self.identifier_constant(&name)?;
-
         let get_opcode: OpCode;
         let set_opcode: OpCode;
 
