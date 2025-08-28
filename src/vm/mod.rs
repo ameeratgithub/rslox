@@ -2,7 +2,11 @@
 /// It takes source code, compiles it, gets bytecode (stored in chunk) from compiler
 /// and then execute that bytecode
 pub mod constants;
-use std::{collections::HashMap, fmt::Arguments, ptr::NonNull};
+use std::{
+    collections::{HashMap, HashSet},
+    fmt::Arguments,
+    ptr::NonNull,
+};
 
 /// A custom `feature` to enable execution tracing.
 /// When enabled, instructions are printed to console to see how bytecode is working
@@ -13,19 +17,19 @@ use crate::{
     chunk::OpCode,
     compiler::errors::CompilerError,
     constants::FRAMES_MAX,
-    value::{FunctionObject, Object, ObjectNode, Value},
+    value::{Object, ObjectNode, ObjectPointer, Value},
 };
 
 pub struct CallFrame {
-    function: FunctionObject,
+    function: Value,
     ip_offset: usize,
     starting_offset: usize, // slots: Vec<Value>,
 }
 
 impl CallFrame {
-    pub fn new(fun_obj: FunctionObject, ip_offset: usize, starting_offset: usize) -> Self {
+    pub fn new(function: Value, ip_offset: usize, starting_offset: usize) -> Self {
         Self {
-            function: fun_obj,
+            function,
             ip_offset,
             // slots,
             starting_offset,
@@ -42,7 +46,7 @@ impl CallFrame {
 
     fn read_byte(&mut self) -> u8 {
         // First byte should be the instruction byte of the code
-        let instruction_byte = self.function.chunk.code[self.ip_offset];
+        let instruction_byte = self.function.as_function_ref().chunk.code[self.ip_offset];
         // Increment instruction pointer after reading the byte
         self.ip_offset += 1;
 
@@ -51,7 +55,7 @@ impl CallFrame {
 
     fn read_u16(&mut self) -> u16 {
         // Read bytes
-        let bytes = &self.function.chunk.code[self.ip_offset..self.ip_offset + 2];
+        let bytes = &self.function.as_function_ref().chunk.code[self.ip_offset..self.ip_offset + 2];
         // Advance two bytes
         self.ip_offset += 2;
         // Convert to u16
@@ -62,12 +66,13 @@ impl CallFrame {
     fn read_constant(&mut self) -> Value {
         // We don't directly store constants on bytecode. Bytecode has the
         // index/offset of constant. We get that index from bytecode.
-        let constant_position = self.function.chunk.code[self.ip_offset];
+        let constant_position = self.function.as_function_ref().chunk.code[self.ip_offset];
         // Gets the value from constant pool.
         // This is not to be used in production. `constant_position` implies that there
         // would be maximum 256 constants, which should not be the case.
         // Multi-byte operations needed to be introduced to handle that
-        let constant: Value = self.function.chunk.constants[constant_position as usize].clone();
+        let constant: Value =
+            self.function.as_function_ref().chunk.constants[constant_position as usize].clone();
         // increment instruction pointer by 1, because we've consumed 1 byte
         self.ip_offset += 1;
         // return the value
@@ -137,6 +142,10 @@ impl VM {
 
     /// Empties the stack and resets the top to '0'
     pub fn reset_stack(&mut self) {
+        let mut hash_set = HashSet::new();
+        while let Some(value) = self.pop() {
+            self.free_stack_object_memory(value, &mut hash_set);
+        }
         self.frames = vec![];
     }
 
@@ -152,6 +161,25 @@ impl VM {
                 // Only free after pointing `self.objects` to `next` of current object
                 // Otherwise `self.objects` will point to freed memory
                 let _ = Box::from_raw(obj.as_ptr());
+            }
+        }
+    }
+
+    /// Frees object memory behind raw pointers, such as a string or a function
+    pub fn free_stack_object_memory(
+        &mut self,
+        value: Value,
+        hash_set: &mut HashSet<ObjectPointer>,
+    ) {
+        if value.is_obj() {
+            let object = value.as_object();
+            if hash_set.contains(&object) {
+                return;
+            }
+
+            unsafe {
+                hash_set.insert(object);
+                let _ = Box::from_raw(object.as_ptr());
             }
         }
     }
@@ -361,7 +389,10 @@ impl VM {
                 }
                 println!("");
                 let offset = self.current_frame().ip_offset;
-                Debug::dissassemble_instruction(&self.current_frame().function.chunk, offset);
+                Debug::dissassemble_instruction(
+                    &self.current_frame().function.as_function_ref().chunk,
+                    offset,
+                );
             }
 
             let instruction_byte = self.current_frame().read_byte();
@@ -374,7 +405,6 @@ impl VM {
                     // It means this is final instruction in the byte code
                     OpCode::OpReturn => {
                         let result = self.pop().unwrap();
-
                         if self.frames.len() - 1 == 0 {
                             self.pop();
                             return Ok(());
@@ -566,11 +596,11 @@ impl VM {
                         let arg_count = self.current_frame().read_byte();
                         let callee_index = self.stack.len() - (arg_count as usize) - 1;
                         let callee = self.stack[callee_index].clone();
-                        let fun_obj = callee.as_function_object();
-                        self.stack[callee_index] =
-                            Value::from_runtime_function(fun_obj.clone(), self)?;
-                        let callee_runtime = Value::from_runtime_function(fun_obj, self)?;
-                        self.call_value(callee_runtime, arg_count)?;
+                        // let fun_obj = callee.as_function_object();
+                        // self.stack[callee_index] =
+                        //     Value::from_runtime_function(fun_obj.clone(), self)?;
+                        // let callee_runtime = Value::from_runtime_function(fun_obj, self)?;
+                        self.call_value(callee, arg_count)?;
                     }
                 }
             }
@@ -579,18 +609,14 @@ impl VM {
 
     fn call_value(&mut self, callee: Value, arg_count: u8) -> Result<(), VMError> {
         if callee.is_function() {
-            let fun_obj_ref = callee.as_object_ref();
-            self.remove_object_pointer(fun_obj_ref);
-
-            let function_object = callee.as_function_object();
-            return self.call(function_object, arg_count);
+            return self.call(callee, arg_count);
         }
 
         Err(self.construct_runtime_error(format_args!("Can only call functions and classes")))
     }
 
-    pub fn call(&mut self, function: FunctionObject, arg_count: u8) -> Result<(), VMError> {
-        let arity = function.arity as u8;
+    pub fn call(&mut self, function: Value, arg_count: u8) -> Result<(), VMError> {
+        let arity = function.as_function_ref().arity as u8;
 
         if arg_count != arity {
             let error = self.construct_runtime_error(format_args!(
@@ -662,7 +688,15 @@ impl VM {
             .checked_sub(1)
             .and_then(|idx| {
                 // We want to get line number from index so this check is important
-                if idx < self.current_frame().function.chunk.lines.len() {
+                if idx
+                    < self
+                        .current_frame()
+                        .function
+                        .as_function_ref()
+                        .chunk
+                        .lines
+                        .len()
+                {
                     Some(idx)
                 } else {
                     None
@@ -671,7 +705,7 @@ impl VM {
 
         let line_info = if let Some(idx) = instruction_index {
             // Get line number of the current instruction
-            self.current_frame().function.chunk.lines[idx]
+            self.current_frame().function.as_function_ref().chunk.lines[idx]
         } else {
             -1
         };
@@ -691,10 +725,13 @@ impl VM {
 
         for frame in self.frames.iter().rev() {
             let function = &frame.function;
-            let instruction = frame.ip_offset - function.chunk.code.len() - 1;
-            print!("[line %d] in {}", function.chunk.lines[instruction]);
+            let instruction = frame.ip_offset - function.as_function_ref().chunk.code.len() - 1;
+            print!(
+                "[line %d] in {}",
+                function.as_function_ref().chunk.lines[instruction]
+            );
 
-            if let Some(name) = function.name.as_ref() {
+            if let Some(name) = function.as_function_ref().name.as_ref() {
                 println!("{}()", name);
             } else {
                 println!("script");

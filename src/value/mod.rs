@@ -231,6 +231,39 @@ impl Value {
             _ => unreachable!(),
         }
     }
+    /// Returns the mutable reference to inner `ObjectPointer`.
+    pub fn as_object_mut(&mut self) -> &mut Object {
+        match self {
+            Self::Obj(op) => unsafe { op.as_mut() },
+            _ => unreachable!(),
+        }
+    }
+
+    /// Returns the reference to the function object
+    pub fn as_function_ref(&self) -> &FunctionObject {
+        match self {
+            Self::Obj(obj) => unsafe {
+                match &obj.as_ref().ty {
+                    ObjectType::Function(f) => f,
+                    _ => unreachable!(),
+                }
+            },
+            _ => unreachable!(),
+        }
+    }
+
+    /// Returns the reference to the function object
+    pub fn as_function_mut(&mut self) -> &mut FunctionObject {
+        match self {
+            Self::Obj(obj) => unsafe {
+                match &mut obj.as_mut().ty {
+                    ObjectType::Function(f) => f,
+                    _ => unreachable!(),
+                }
+            },
+            _ => unreachable!(),
+        }
+    }
 
     /// Destroys the value object, because `self` is moved, and gets the inner `String` created at runtime
     pub fn as_object_string(self) -> String {

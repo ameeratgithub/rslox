@@ -74,7 +74,7 @@ impl<'a> CompilationContext<'a> {
     }
 
     // Responsible to generate byte code from source code
-    pub fn compile(&mut self) -> Result<FunctionObject, CompilerError> {
+    pub fn compile(&mut self) -> Result<Value, CompilerError> {
         // Consumes first token
         // Important because we look back and see previous tokens
         self.parser
@@ -97,11 +97,9 @@ impl<'a> CompilationContext<'a> {
         fun_ty = fun_obj.into();
 
         let child_compiler = CompilerState::new(fun_ty);
-
         self.push(child_compiler);
 
         self.begin_scope();
-
         self.consume(TokenType::LeftParen, "Expected '(' after function name")?;
 
         if !self.check_current(TokenType::RightParen) {
@@ -238,7 +236,7 @@ impl<'a> CompilationContext<'a> {
     }
 
     /// Executes when all expressions are evaluated
-    fn end_compiler(&mut self) -> Result<FunctionObject, CompilerError> {
+    fn end_compiler(&mut self) -> Result<Value, CompilerError> {
         self.emit_return()?;
 
         let func = &mut self.compiler_mut().function_type;
@@ -259,7 +257,7 @@ impl<'a> CompilationContext<'a> {
         }
 
         self.pop();
-        Ok(fun_obj)
+        Ok(fun_obj.into())
     }
 }
 

@@ -2,7 +2,7 @@ use std::process;
 
 use crate::{
     compiler::{CompilationContext, CompilerState, types::FunctionType},
-    value::{FunctionObject, Value},
+    value::FunctionObject,
     vm::{VM, VMError},
 };
 
@@ -43,10 +43,9 @@ pub fn interpret(code: &str, vm: &mut VM) -> Result<(), VMError> {
     let top_function = context.compile().map_err(|e| VMError::CompileError(e))?;
 
     // Value on stack should be garbage collected
-    let stack_value= Value::from_runtime_function(top_function.clone(), vm)?;
+    let stack_value = top_function.clone();
     vm.push(stack_value);
-    
-    let call_value: Value = top_function.into();
-    vm.call(call_value.as_function_object(), 0)?;
+
+    vm.call(top_function, 0)?;
     vm.interpret()
 }
