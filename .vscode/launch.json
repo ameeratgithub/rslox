@@ -106,7 +106,7 @@
                     "kind": "example"
                 }
             },
-            "args": ["--file=lox/scopes.lox"],
+            "args": ["--file=lox/functions/recursion.lox"],
             "cwd": "${workspaceFolder}"
         },
         {
