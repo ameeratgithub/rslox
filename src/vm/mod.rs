@@ -388,9 +388,12 @@ impl VM {
                     // It means this is final instruction in the byte code
                     OpCode::OpReturn => {
                         let result = self.pop().unwrap();
-                        if self.frames.len() - 1 == 0 {
+                        if self.frames.len() == 1 {
                             self.pop();
                             return Ok(());
+                        } else if self.frames.len() > 1 {
+                            self.pop();
+                            self.pop();
                         }
 
                         self.push(result);
