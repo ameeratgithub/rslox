@@ -1,6 +1,5 @@
 use crate::scanner::{
-    Scanner, ScannerError,
-    token::{Token, TokenType},
+    errors::ScannerError, token::{Token, TokenType}, Scanner
 };
 
 /// Collection of errors related to Parser
@@ -24,6 +23,7 @@ impl std::fmt::Display for ParserError {
     }
 }
 
+#[derive(Clone)]
 /// Data structure to hold `Token`s and `Scanner` to scan tokens
 pub struct Parser<'a> {
     /// Scanner object to scan tokens on demand

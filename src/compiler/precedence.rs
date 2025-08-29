@@ -1,5 +1,5 @@
 use crate::{
-    compiler::{Compiler, CompilerError},
+    compiler::{CompilationContext, CompilerError},
     scanner::token::TokenType,
 };
 
@@ -43,7 +43,7 @@ impl From<u8> for Precedence {
 }
 
 /// This is type of pointer to a parsing function, implemented in `Compiler` struct
-pub type ParseFn<'a> = Option<fn(&mut Compiler<'a>, bool) -> Result<(), CompilerError>>;
+pub type ParseFn<'a> = Option<fn(&mut CompilationContext<'a>, bool) -> Result<(), CompilerError>>;
 
 #[derive(Debug, Clone, Copy)]
 /// Data structure used to store infix and prefix rules of `TokenType`. Rules are just method
@@ -69,11 +69,11 @@ impl<'a> ParseRule<'a> {
                 // This token token type is responsible to start executing grouping expressions.
                 // It doesn't require another operand and should be at the start, we say that it's
                 // a prefix rule
-                prefix: Some(Compiler::grouping),
-                infix: None,
+                prefix: Some(CompilationContext::grouping),
+                infix: Some(CompilationContext::call),
                 // Token itself shouldn't have any precedence. It's the inner expression which
                 // has precedence
-                precedence: Precedence::None,
+                precedence: Precedence::Call,
             },
             // TokenType::RightParen
             ParseRule {
@@ -108,16 +108,16 @@ impl<'a> ParseRule<'a> {
             // TokenType::Minus
             ParseRule {
                 // If it involves only one operand, it's a prefix and is unary operation
-                prefix: Some(Compiler::unary),
+                prefix: Some(CompilationContext::unary),
                 // If it involves two operands, it's infix and is a binary operation
-                infix: Some(Compiler::binary),
+                infix: Some(CompilationContext::binary),
                 precedence: Precedence::Term,
             },
             // TokenType::Plus
             ParseRule {
                 prefix: None,
                 // Only a binary operation
-                infix: Some(Compiler::binary),
+                infix: Some(CompilationContext::binary),
                 precedence: Precedence::Term,
             },
             // TokenType::Semicolon
@@ -130,26 +130,26 @@ impl<'a> ParseRule<'a> {
             ParseRule {
                 prefix: None,
                 // Only a binary operation
-                infix: Some(Compiler::binary),
+                infix: Some(CompilationContext::binary),
                 precedence: Precedence::Factor,
             },
             // TokenType::Star
             ParseRule {
                 prefix: None,
                 // Only a binary operation
-                infix: Some(Compiler::binary),
+                infix: Some(CompilationContext::binary),
                 precedence: Precedence::Factor,
             },
             // TokenType::Bang
             ParseRule {
-                prefix: Some(Compiler::unary),
+                prefix: Some(CompilationContext::unary),
                 infix: None,
                 precedence: Precedence::None,
             },
             // TokenType::BangEqual
             ParseRule {
                 prefix: None,
-                infix: Some(Compiler::binary),
+                infix: Some(CompilationContext::binary),
                 precedence: Precedence::Equality,
             },
             // TokenType::Equal
@@ -161,42 +161,42 @@ impl<'a> ParseRule<'a> {
             // TokenType::EqualEqual
             ParseRule {
                 prefix: None,
-                infix: Some(Compiler::binary),
+                infix: Some(CompilationContext::binary),
                 precedence: Precedence::Equality,
             },
             // TokenType::Greater
             ParseRule {
                 prefix: None,
-                infix: Some(Compiler::binary),
+                infix: Some(CompilationContext::binary),
                 precedence: Precedence::Comparison,
             },
             // TokenType::GreatorEqual
             ParseRule {
                 prefix: None,
-                infix: Some(Compiler::binary),
+                infix: Some(CompilationContext::binary),
                 precedence: Precedence::Comparison,
             },
             // TokenType::Less
             ParseRule {
                 prefix: None,
-                infix: Some(Compiler::binary),
+                infix: Some(CompilationContext::binary),
                 precedence: Precedence::Comparison,
             },
             // TokenType::LessEqual
             ParseRule {
                 prefix: None,
-                infix: Some(Compiler::binary),
+                infix: Some(CompilationContext::binary),
                 precedence: Precedence::Comparison,
             },
             // TokenType::Identifier
             ParseRule {
-                prefix: Some(Compiler::variable),
+                prefix: Some(CompilationContext::variable),
                 infix: None,
                 precedence: Precedence::None,
             },
             // TokenType::String
             ParseRule {
-                prefix: Some(Compiler::string),
+                prefix: Some(CompilationContext::string),
                 infix: None,
                 precedence: Precedence::None,
             },
@@ -204,14 +204,14 @@ impl<'a> ParseRule<'a> {
             ParseRule {
                 // It means it's going to start parsing a number. Number itself doesn't
                 // have any operator and operands, so it's going to be prefix rule.
-                prefix: Some(Compiler::number),
+                prefix: Some(CompilationContext::number),
                 infix: None,
                 precedence: Precedence::None,
             },
             // TokenType::And
             ParseRule {
                 prefix: None,
-                infix: Some(Compiler::logical_and),
+                infix: Some(CompilationContext::logical_and),
                 precedence: Precedence::And,
             },
             // TokenType::Class
@@ -228,7 +228,7 @@ impl<'a> ParseRule<'a> {
             },
             // TokenType::False
             ParseRule {
-                prefix: Some(Compiler::literal),
+                prefix: Some(CompilationContext::literal),
                 infix: None,
                 precedence: Precedence::None,
             },
@@ -252,14 +252,14 @@ impl<'a> ParseRule<'a> {
             },
             // TokenType::Nil
             ParseRule {
-                prefix: Some(Compiler::literal),
+                prefix: Some(CompilationContext::literal),
                 infix: None,
                 precedence: Precedence::None,
             },
             // TokenType::Or
             ParseRule {
                 prefix: None,
-                infix: Some(Compiler::logical_or),
+                infix: Some(CompilationContext::logical_or),
                 precedence: Precedence::Or,
             },
             // TokenType::Print
@@ -288,7 +288,7 @@ impl<'a> ParseRule<'a> {
             },
             // TokenType::True
             ParseRule {
-                prefix: Some(Compiler::literal),
+                prefix: Some(CompilationContext::literal),
                 infix: None,
                 precedence: Precedence::None,
             },
