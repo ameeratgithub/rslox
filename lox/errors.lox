@@ -1,0 +1,4 @@
+fun name(){
+    print a;
+}
+name();

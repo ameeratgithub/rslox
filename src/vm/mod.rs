@@ -85,7 +85,7 @@ impl std::fmt::Display for VMError {
                 write!(f, "Compiler Error: {}", e)
             }
             Self::RuntimeError(e) => {
-                write!(f, "Runtime Error: {e}")
+                write!(f, "{e}")
             }
         }
     }
@@ -655,61 +655,17 @@ impl VM {
 
     /// This is important because we want to display errors nicely.
     /// It gets dynamic arguments, and constructs proper error
-    fn construct_runtime_error(&mut self, arguments: Arguments) -> VMError {
-        // Instruction is one step behind the current offset, so subtracting 1
-        let instruction_index = self
-            .current_frame()
-            .ip_offset
-            .checked_sub(1)
-            .and_then(|idx| {
-                // We want to get line number from index so this check is important
-                if idx
-                    < self
-                        .current_frame()
-                        .function
-                        .as_function_ref()
-                        .chunk
-                        .lines
-                        .len()
-                {
-                    Some(idx)
-                } else {
-                    None
-                }
-            });
-
-        let line_info = if let Some(idx) = instruction_index {
-            // Get line number of the current instruction
-            self.current_frame().function.as_function_ref().chunk.lines[idx]
-        } else {
-            -1
-        };
-
-        let message = format!("{}", arguments);
-        let message = if line_info != -1 {
-            // If line number exists, show line number with message
-            format!("[line {}] in bytecode: {}", line_info, message)
-        } else {
-            // Invalid line number, show ip_offset
-            format!(
-                "[line unknown] in bytecode (VM IP:{}): {}",
-                self.current_frame().ip_offset,
-                message
-            )
-        };
-
+    pub(crate) fn construct_runtime_error(&mut self, arguments: Arguments) -> VMError {
+        let mut message = format!("{}\n", arguments);
         for frame in self.frames.iter().rev() {
-            let function = &frame.function;
-            let instruction = frame.ip_offset - function.as_function_ref().chunk.code.len() - 1;
-            print!(
-                "[line %d] in {}",
-                function.as_function_ref().chunk.lines[instruction]
-            );
+            let function = &frame.function.as_function_ref();
+            let instruction = frame.ip_offset - 1;
+            message.push_str(&format!("[line {}] in ", function.chunk.lines[instruction]));
 
-            if let Some(name) = function.as_function_ref().name.as_ref() {
-                println!("{}()", name);
+            if let Some(name) = function.name.as_ref() {
+                message.push_str(&format!("{}()\n", name));
             } else {
-                println!("script");
+                message.push_str("<script>\n");
             }
         }
 
