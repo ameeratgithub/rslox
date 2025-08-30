@@ -411,7 +411,7 @@ impl VM {
                         let v = self.pop().ok_or_else(||
                             // Return error if value on stack is not found
                             self.construct_runtime_error(format_args!("Expected value on the stack")))?;
-                        println!("{}", v);
+                        print!("{}", v);
                     }
                     OpCode::OpGetLocal => {
                         let slot = self.current_frame().read_byte();

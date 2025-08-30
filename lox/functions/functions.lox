@@ -1,5 +1,5 @@
 fun areWeHavingItYet() {
-    print "Yes we are!";
+    print "Yes we are!"+"\n";
 }
 areWeHavingItYet();
 
@@ -7,7 +7,7 @@ fun getFullName(firstName, lastName){
     var fullName = firstName + " " + lastName;
     return fullName;
 }
-print getFullName("Ameer", "Hamza");
+print getFullName("Ameer", "Hamza") + "\n";
 
 fun complexAddition(a,b,c) {
   var d =  a + b;
@@ -15,4 +15,4 @@ fun complexAddition(a,b,c) {
   return e;
 }
 
-print complexAddition(10 , 20, 30);
+print complexAddition(10 , 20, 30) + "\n";

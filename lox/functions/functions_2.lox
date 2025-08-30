@@ -14,6 +14,6 @@ fun getGradeFromMarks(marks){
     return grade;
 }
 
-print getGradeFromMarks(90);
-print getGradeFromMarks(85);
-print getGradeFromMarks(84);
+print getGradeFromMarks(90)+"\n";
+print getGradeFromMarks(85)+"\n";
+print getGradeFromMarks(84)+"\n";

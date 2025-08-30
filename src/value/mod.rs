@@ -22,7 +22,7 @@ impl std::fmt::Display for ObjectType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::String(s) => {
-                // Display string values in double quotes
+                let s = s.replace("\\n", "\n");
                 write!(f, "{s}")
             }
             Self::Function(fun) => {
@@ -362,14 +362,10 @@ impl Into<String> for Value {
                 match (boxed_obj).ty {
                     // If Object is of type string, just move the string out of the box
                     ObjectType::String(s) => *s,
-                    ObjectType::Function(_) => String::from("[Function]"),
+                    ObjectType::Function(f) => format!("{}", f),
                 }
             },
-            // If string is Literal, created at compile time, just move out of the enum
-            Self::Literal(Literal::String(s)) => s,
-            Self::Literal(Literal::Bool(b)) => b.to_string(),
-            Self::Literal(Literal::Number(n)) => n.to_string(),
-            Self::Literal(Literal::Nil) => String::from("nil"),
+            _ => format!("{}", self),
         }
     }
 }
@@ -541,7 +537,7 @@ impl std::fmt::Display for Value {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Literal(Literal::Nil) => {
-                write!(f, "Nil")
+                write!(f, "nil")
             }
             Self::Literal(Literal::Bool(b)) => {
                 write!(f, "{b}")
@@ -550,6 +546,7 @@ impl std::fmt::Display for Value {
                 write!(f, "{n}")
             }
             Self::Literal(Literal::String(s)) => {
+                let s = s.replace("\\n", "\n");
                 write!(f, "{s}")
             }
             Self::Obj(obj) => unsafe { write!(f, "{}", obj.as_ref()) },

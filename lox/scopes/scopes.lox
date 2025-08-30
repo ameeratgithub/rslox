@@ -1,5 +1,0 @@
-{
-    var number;
-    number = 10;
-    print number;
-}
