@@ -30,7 +30,16 @@ and the output will be:
 Age: 22
 ```
 
-Trying to read a variable without declaration, should throw a compiler error.
+Trying to read a variable without declaration should throw a compiler error. If you fire up REPL and quickly type following code
+```javascript
+print a;
+```
+
+You will see the following error:
+```bash
+Runtime Error: Undefined variable 'a'
+[line 1] in <script>
+```
 
 ### Updating variables
 Variables in **rslox** are mutable by default. It means that you can declare a variable, and update its value later without any problem. Consider following code
@@ -71,11 +80,33 @@ print name + "\n";
 You can use a single variable for different types without any issue. While this offers convenience, it can introduce bugs if not used carefully. 
 
 ### Variable scoping
-
 You can declare variables in a global scope and local scope. Global variables are defined at top level, like they aren't declared in any block. All of the previous examples we saw, were global variables. 
 
 #### Global variables
+Global variables are declared at top level, and they can be used throughout the script. They are accessible in functions, control flow statements and simple blocks. Blocks can update global variables and changes will be reflected throughout the script. Consider following example:
 
-Global variables are declared at top level, and not in any block, they can be used throughout the script. You can declare at the top
+```javascript
+var age=22;
+// Will print '22'
+print age+"\n";
 
-If you want to  block, like simple block, function block, loop block or if/else blocks, variable declared in th 
+{
+    age= 23;
+}
+// Will print 23
+print age+"\n";
+
+if (true){
+    age = 26;
+}
+// Will print 26
+print age+"\n";
+```
+
+If you want to re-declare a global variable, it will not throw an error. Like this example is completely valid, and should print '20' on the console.
+```javascript
+var a=10;
+var a=20;
+print a;
+```
+This is known as 'shadowing'. It's important for REPL where you can re-declare variables with the same name. Note that this is only allowed for global variables. Local variables don't support shadowing, and will throw an error.
