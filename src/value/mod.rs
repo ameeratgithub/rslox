@@ -205,7 +205,7 @@ impl Value {
     }
 
     /// Returns true if value is an object
-    pub fn is_obj(&self) -> bool {
+    pub fn is_object(&self) -> bool {
         matches!(self, Self::Obj(_))
     }
 
@@ -266,16 +266,12 @@ impl Value {
     }
 
     /// Destroys the value object, because `self` is moved, and gets the inner `String` created at runtime
-    pub fn as_object_string(self) -> String {
-        self.into()
-    }
-    /// Destroys the value object, because `self` is moved, and gets the inner `String` created at runtime
     pub fn as_function_object(self) -> FunctionObject {
         self.into()
     }
 
-    /// Destroys the value object, because `self` is moved, and gets the inner `String` created at compile time
-    pub fn as_literal_string(self) -> String {
+    /// Destroys the value object, because `self` is moved, and gets the inner `String`
+    pub fn as_string(self) -> String {
         self.into()
     }
 
@@ -366,14 +362,14 @@ impl Into<String> for Value {
                 match (boxed_obj).ty {
                     // If Object is of type string, just move the string out of the box
                     ObjectType::String(s) => *s,
-                    _ => unreachable!(),
+                    ObjectType::Function(_) => String::from("[Function]"),
                 }
             },
             // If string is Literal, created at compile time, just move out of the enum
             Self::Literal(Literal::String(s)) => s,
-            // Can't handle errors at this level, errors are handled on compiler level
-            // for detailed output
-            _ => unreachable!(),
+            Self::Literal(Literal::Bool(b)) => b.to_string(),
+            Self::Literal(Literal::Number(n)) => n.to_string(),
+            Self::Literal(Literal::Nil) => String::from("nil"),
         }
     }
 }
