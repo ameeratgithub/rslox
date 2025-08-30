@@ -162,7 +162,7 @@ impl VM {
         value: Value,
         hash_set: &mut HashSet<ObjectPointer>,
     ) {
-        if value.is_obj() {
+        if value.is_object() {
             let object = value.as_object();
             if hash_set.contains(&object) {
                 return;
@@ -232,29 +232,29 @@ impl VM {
         right_operand: Value,
     ) -> Result<(), VMError> {
         // Check if left_operand is heap allocated string
-        let left = if left_operand.is_object_string() {
+        let left = if left_operand.is_object() {
             // Get reference to the `ObjectPointer` of `left_operand`
             let left_pointer = left_operand.as_object_ref();
             // Remove that pointer from linked list, because `Value` is going to be extracted
             self.remove_object_pointer(left_pointer);
             // Extract string from the pointer
-            left_operand.as_object_string()
+            left_operand.as_string()
         } else {
             // It's not heap allocated string, so just extract the value
-            left_operand.as_literal_string()
+            left_operand.as_string()
         };
 
         // Check if right_operand is heap allocated string
-        let right = if right_operand.is_object_string() {
+        let right = if right_operand.is_object() {
             // Get reference to the `ObjectPointer` of `right_operand`
             let right_pointer = right_operand.as_object_ref();
             // Remove that pointer from linked list, because `Value` is going to be extracted
             self.remove_object_pointer(right_pointer);
             // Extract string from the pointer
-            right_operand.as_object_string()
+            right_operand.as_string()
         } else {
             // It's not heap allocated string, so just extract the value
-            right_operand.as_literal_string()
+            right_operand.as_string()
         };
 
         // Because it's a runtime operation, being executed by vm, it needs to create a value
@@ -285,16 +285,17 @@ impl VM {
                 self.construct_runtime_error(err)
             })
             // This will get executed if value is on stack
-            .and_then(|val| {
-                // We're only interested if right operand is a number or a string
-                if val.is_number() || val.is_string() {
-                    Ok(val)
-                } else {
-                    // If right operand is not a number, return an error
-                    let err = format_args!("Expected number or string as right operand");
-                    Err(self.construct_runtime_error(err))
-                }
-            })?;
+            // .and_then(|val| {
+            //     // We're only interested if right operand is a number or a string
+            //     if val.is_number() || val.is_string() {
+            //         Ok(val)
+            //     } else {
+            //         // If right operand is not a number, return an error
+            //         let err = format_args!("Expected number or string as right operand");
+            //         Err(self.construct_runtime_error(err))
+            //     }
+            // })
+            ?;
         let left_operand = self
             .pop()
             .ok_or_else(|| {
@@ -305,19 +306,19 @@ impl VM {
             // This will get executed if value is on stack
             .and_then(|val| {
                 let operands_are_numbers = right_operand.is_number() && val.is_number();
-                let operands_are_strings = right_operand.is_string() && val.is_string();
+                let one_operand_is_string = right_operand.is_string() || val.is_string();
                 // We're only interested if both operands are numbers or both are strings
-                if operands_are_numbers || (operands_are_strings && opcode == OpCode::OpAdd) {
+                if operands_are_numbers || (one_operand_is_string && opcode == OpCode::OpAdd) {
                     Ok(val)
                 } else {
                     // Invalid operation on operands, return error
-                    let err = format_args!("Expected both operands to be of same type");
+                    let err = format_args!("Invalid operation on these operands.");
                     Err(self.construct_runtime_error(err))
                 }
             })?;
 
         // Concatinate if both operands are strings
-        if right_operand.is_string() && left_operand.is_string() {
+        if right_operand.is_string() || left_operand.is_string() {
             return self.concatenate_strings(left_operand, right_operand);
         }
 
@@ -427,7 +428,7 @@ impl VM {
                     // Define a global variable and insert into `HashMap`
                     OpCode::OpDefineGlobal => {
                         // Read the variable name from bytecode and convert it to literal string
-                        let name = self.current_frame().read_constant().as_literal_string();
+                        let name = self.current_frame().read_constant().as_string();
                         // If variable is not initilized, default value stored on stack should be `Nil`. In both cases, we're expecting value on the stack.
                         let value= self.pop().ok_or_else(||
                             // Return error if value on stack is not found
@@ -438,7 +439,7 @@ impl VM {
                     // Gets the value of variable and pushes onto the stack
                     OpCode::OpGetGlobal => {
                         // Read the variable name from bytecode and convert it to literal string
-                        let name = self.current_frame().read_constant().as_literal_string();
+                        let name = self.current_frame().read_constant().as_string();
                         // Get the global variable from `HashMap`
                         let value = self.globals.get(&name).cloned().ok_or_else(|| {
                             // Variable doesn't exist. Return an error.
@@ -452,7 +453,7 @@ impl VM {
                     // Sets value to already declared global variable
                     OpCode::OpSetGlobal => {
                         // Read the variable name from bytecode and convert it to literal string
-                        let name = self.current_frame().read_constant().as_literal_string();
+                        let name = self.current_frame().read_constant().as_string();
                         // Check for underflow. If `stack_top` is less than zero after subtraction, return error
                         let value_index = self.stack.len().checked_sub(1).ok_or_else(|| {
                             self.construct_runtime_error(format_args!("Expected value on stack"))
