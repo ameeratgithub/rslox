@@ -6,10 +6,17 @@ fun factorial(n){
     return n * factorial(n-1);
 }
 
-print factorial(-1);
-print factorial(0);
-print factorial(1);
-print factorial(2);
-print factorial(3);
-print factorial(4);
-print factorial(5);
+var num = -1;
+print "Factorial of "+ num + " is " + factorial(num);
+num = 0;
+print "Factorial of "+ num + " is " + factorial(num);
+num = 1;
+print "Factorial of "+ num + " is " + factorial(num);
+num = 2;
+print "Factorial of "+ num + " is " + factorial(num);
+num = 3;
+print "Factorial of "+ num + " is " + factorial(num);
+num = 4;
+print "Factorial of "+ num + " is " + factorial(num);
+num = 5;
+print "Factorial of "+ num + " is " + factorial(num);
