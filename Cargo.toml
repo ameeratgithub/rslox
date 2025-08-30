@@ -11,7 +11,4 @@ debug_trace_execution = []
 clap = { version = "4.5.41", features = ["derive"] }
 
 [[example]]
-name = "basic_arithmetic"
-
-[[example]]
 name = "cli"

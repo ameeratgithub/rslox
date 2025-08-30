@@ -103,9 +103,9 @@ impl Object {
         // Allocate `Object` on heap, by using `Box`
         let boxed_obj = Box::new(obj);
         // Convert `Box` pointer into raw pointer, create a NonNull pointer from raw_pointer
-        let obj_ptr = NonNull::new(Box::into_raw(boxed_obj)).ok_or(VMError::RuntimeError(
-            "Can't convert object into NonNull pointer".to_owned(),
-        ))?;
+        let obj_ptr = NonNull::new(Box::into_raw(boxed_obj)).ok_or_else(|| {
+            vm.construct_runtime_error(format_args!("Can't convert object into NonNull pointer."))
+        })?;
 
         // Point `vm.objects` to newly added node
         vm.objects = Some(obj_ptr);
