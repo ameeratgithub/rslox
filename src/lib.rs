@@ -1,4 +1,4 @@
-use std::process;
+use std::{fs, process};
 
 use crate::{
     compiler::{CompilationContext, CompilerState, types::FunctionType},
@@ -48,4 +48,17 @@ pub fn interpret(code: &str, vm: &mut VM) -> Result<(), VMError> {
 
     vm.call(top_function, 0)?;
     vm.interpret()
+}
+
+/// Executes code from a file
+pub fn run_file(file_path: &str) {
+    let mut vm = VM::new();
+    // Reads file and returns Result. If result is Ok, execute the string obtained from file
+    if let Ok(content) = fs::read_to_string(file_path) {
+        execute(&content, &mut vm);
+        vm.reset_vm();
+    } else {
+        eprintln!("Can't read code from file: {file_path}");
+        process::exit(74);
+    }
 }

@@ -1,9 +1,5 @@
 /// This module handles CLI arguments and takes actions. Simplified using `clap` crate
-use std::{
-    fs,
-    io::{self, Write},
-    process,
-};
+use std::io::{self, Write};
 
 use crate::{execute, vm::VM};
 use clap::Parser;
@@ -71,17 +67,4 @@ pub fn repl() {
     }
 
     vm.reset_vm();
-}
-
-/// Executes code from a file
-pub fn run_file(file_path: &str) {
-    let mut vm = VM::new();
-    // Reads file and returns Result. If result is Ok, execute the string obtained from file
-    if let Ok(content) = fs::read_to_string(file_path) {
-        execute(&content, &mut vm);
-        vm.reset_vm();
-    } else {
-        eprintln!("Can't read code from file: {file_path}");
-        process::exit(74);
-    }
 }
