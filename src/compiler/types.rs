@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-use crate::value::FunctionObject;
+use crate::value::objects::FunctionObject;
 
 pub enum FunctionType {
     Function(Box<FunctionObject>),

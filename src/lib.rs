@@ -1,9 +1,7 @@
 use std::{fs, process};
 
 use crate::{
-    compiler::{CompilationContext, CompilerState, types::FunctionType},
-    value::FunctionObject,
-    vm::{VM, VMError},
+    compiler::{types::FunctionType, CompilationContext, CompilerState}, value::objects::FunctionObject, vm::{errors::VMError, VM}
 };
 
 pub mod chunk;
