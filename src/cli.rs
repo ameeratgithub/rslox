@@ -1,11 +1,11 @@
 /// This module handles CLI arguments and takes actions. Simplified using `clap` crate
-use std::{
-    fs,
-    io::{self, Write},
-    process,
-};
+use std::io::{self, Write};
 
-use crate::{execute, vm::VM};
+use crate::{
+    compiler::{CompilationContext, CompilerState, types::FunctionType},
+    value::objects::FunctionObject,
+    vm::VM,
+};
 use clap::Parser;
 
 #[derive(Parser, Debug)]
@@ -57,8 +57,32 @@ pub fn repl() {
                     break;
                 }
 
-                // just run the code and display errors if any
-                execute(source, &mut vm);
+                let mut context = CompilationContext::new(&line);
+                let function_type = FunctionType::Script(Box::new(FunctionObject::new()));
+                context.push(CompilerState::new(function_type));
+
+                let top_function = context.compile();
+
+                if let Err(e) = top_function {
+                    println!("{e}");
+                    continue;
+                }
+
+                let top_function = top_function.unwrap();
+                // Value on stack should be garbage collected
+                let stack_value = top_function.clone();
+                vm.replace_or_push(stack_value, 0);
+
+                let call_result = vm.call(top_function, 0);
+                if let Err(e) = call_result {
+                    println!("{e}");
+                    continue;
+                }
+                let interpret_result = vm.interpret();
+                if let Err(e) = interpret_result {
+                    println!("{e}");
+                }
+                vm.reset_vm();
             }
             // Display error if reading line from cli is unsuccessful
             Err(e) => {
@@ -68,20 +92,5 @@ pub fn repl() {
         }
         // clear/empty the line for new input.
         line.clear();
-    }
-
-    vm.reset_vm();
-}
-
-/// Executes code from a file
-pub fn run_file(file_path: &str) {
-    let mut vm = VM::new();
-    // Reads file and returns Result. If result is Ok, execute the string obtained from file
-    if let Ok(content) = fs::read_to_string(file_path) {
-        execute(&content, &mut vm);
-        vm.reset_vm();
-    } else {
-        eprintln!("Can't read code from file: {file_path}");
-        process::exit(74);
     }
 }
