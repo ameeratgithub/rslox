@@ -6,6 +6,7 @@ mod debug;
 pub mod errors;
 mod functions;
 mod garbage_collection;
+mod native;
 mod operations;
 mod variables;
 
@@ -14,8 +15,8 @@ use std::collections::HashMap;
 use crate::{
     chunk::OpCode,
     constants::FRAMES_MAX,
-    value::{Value, objects::ObjectNode},
-    vm::{call_frame::CallFrame, errors::VMError},
+    value::{objects::ObjectNode, Value},
+    vm::{call_frame::CallFrame, errors::VMError, native::clock_native},
 };
 
 /// Data structure to handle a stack based virtual machine
@@ -45,7 +46,7 @@ impl VM {
 
     /// Compiles source code, gets bytecode from compiler, and executes that bytecode
     pub fn interpret(&mut self) -> Result<(), VMError> {
-        // Run the bytecode (`self.chunk`) received from compiler.
+        self.define_native("clock", clock_native)?;
         self.run()
     }
 

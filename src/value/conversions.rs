@@ -1,6 +1,6 @@
 use std::ptr::NonNull;
 
-use crate::value::{FunctionObject, Literal, Object, ObjectPointer, ObjectType, Value};
+use crate::value::{objects::NativeFn, FunctionObject, Literal, Object, ObjectPointer, ObjectType, Value};
 
 /// Implements `Into` trait to extract `bool` from `Value::Bool`
 impl Into<bool> for Value {
@@ -56,12 +56,14 @@ impl Into<String> for Value {
                     // If Object is of type string, just move the string out of the box
                     ObjectType::String(s) => *s,
                     ObjectType::Function(f) => format!("{}", f),
+                    ObjectType::Native(_f) => format!("<native>"),
                 }
             },
             _ => format!("{}", self),
         }
     }
 }
+
 /// Implements `Into` trait to extract `Obj` from `Value::Obj`
 impl Into<FunctionObject> for Value {
     fn into(self) -> FunctionObject {
@@ -79,6 +81,33 @@ impl Into<FunctionObject> for Value {
                 match (boxed_obj).ty {
                     // If Object is of type `FunctionObject`, just move the `FunctionObject` out of the box
                     ObjectType::Function(fun) => *fun,
+                    _ => unreachable!(),
+                }
+            },
+            // Can't handle errors at this level, errors are handled on compiler level
+            // for detailed output
+            _ => unreachable!(),
+        }
+    }
+}
+
+/// Implements `Into` trait to extract `Obj` from `Value::Obj`
+impl Into<NativeFn> for Value {
+    fn into(self) -> NativeFn {
+        match self {
+            // Function is created at runtime, some unsafe code is needed to handle raw pointers.
+            // Before calling `.into()`, it should be checked that value is indeed a `FunctionObject`.
+            Self::Obj(n) => unsafe {
+                // Get the raw pointer to the `FunctionObject`
+                let raw_ptr = n.as_ptr();
+                // Convert raw pointer to the owned pointer. It's unsafe operation. It's important to extract value from the `NonNull` pointer.
+                // --------- IMPORTANT NOTE ---------
+                // This gets the inner value from pointer and moves it to owned pointer. This will invalidate existing pointers, such as stored in `vm.objects`. Moving into owned `FunctionObject` will require pointers to be removed manually from the list
+                // --------- /IMPORTANT NOTE --------
+                let boxed_obj = Box::from_raw(raw_ptr);
+                match (boxed_obj).ty {
+                    // If Object is of type `FunctionObject`, just move the `FunctionObject` out of the box
+                    ObjectType::Native(fun) => *fun,
                     _ => unreachable!(),
                 }
             },
