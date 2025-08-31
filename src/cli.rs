@@ -2,7 +2,9 @@
 use std::io::{self, Write};
 
 use crate::{
-    compiler::{types::FunctionType, CompilationContext, CompilerState}, value::objects::FunctionObject, vm::VM
+    compiler::{CompilationContext, CompilerState, types::FunctionType},
+    value::objects::FunctionObject,
+    vm::VM,
 };
 use clap::Parser;
 
@@ -21,9 +23,6 @@ pub fn repl() {
 
     // let mut chunk = Chunk::new();
     let mut vm = VM::new();
-    let mut context = CompilationContext::new("");
-    let function_type = FunctionType::Script(Box::new(FunctionObject::new()));
-    context.push(CompilerState::new(function_type));
 
     loop {
         print!("> ");
@@ -57,10 +56,11 @@ pub fn repl() {
                 if source == "exit" {
                     break;
                 }
-                // let a=
-                // let owned = source.to_owned();
-                // let code = &owned;
-                // context.extend(code);
+
+                let mut context = CompilationContext::new(&line);
+                let function_type = FunctionType::Script(Box::new(FunctionObject::new()));
+                context.push(CompilerState::new(function_type));
+
                 let top_function = context.compile().unwrap();
                 // Value on stack should be garbage collected
                 let stack_value = top_function.clone();
@@ -69,6 +69,7 @@ pub fn repl() {
                 vm.interpret().unwrap();
                 // just run the code and display errors if any
                 // execute(source, &mut vm);
+                vm.reset_vm();
             }
             // Display error if reading line from cli is unsuccessful
             Err(e) => {
@@ -79,6 +80,4 @@ pub fn repl() {
         // clear/empty the line for new input.
         line.clear();
     }
-
-    vm.reset_vm();
 }
