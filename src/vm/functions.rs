@@ -32,6 +32,19 @@ impl VM {
     fn call_value(&mut self, callee: Value, arg_count: u8) -> Result<(), VMError> {
         if callee.is_function() {
             return self.call(callee, arg_count);
+        } else if callee.is_native() {
+            let native = callee.as_native_ref();
+            
+            let mut values = vec![];
+            for _ in 0..arg_count {
+                values.push(self.pop().unwrap());
+            }
+            self.pop();
+            
+            let result = native(arg_count, values);
+            self.push(result);
+            
+            return Ok(());
         }
 
         Err(self.construct_runtime_error(format_args!("Can only call functions and classes")))

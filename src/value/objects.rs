@@ -2,8 +2,11 @@ use std::{fmt::Display, ptr::NonNull};
 
 use crate::{
     chunk::Chunk,
+    value::Value,
     vm::{VM, errors::VMError},
 };
+
+pub type NativeFn = fn(arg_count: u8, args: Vec<Value>) -> Value;
 
 #[derive(Debug, Clone, PartialEq)]
 /// Type to store object types and associated data
@@ -11,6 +14,7 @@ pub enum ObjectType {
     /// Stores owned pointer to the String allocated on heap
     String(Box<String>),
     Function(Box<FunctionObject>),
+    Native(Box<NativeFn>),
 }
 
 /// `Display` trait implementation to display `ObjectType`s nicely
@@ -23,6 +27,9 @@ impl std::fmt::Display for ObjectType {
             }
             Self::Function(fun) => {
                 write!(f, "{fun}")
+            }
+            Self::Native(_fun) => {
+                write!(f, "<native>")
             }
         }
     }
@@ -122,6 +129,15 @@ impl Object {
     ) -> Result<ObjectPointer, VMError> {
         // Create an owned pointer to string, not object it self, and pass to `with_vm` function. This distinction is important because ObjectType::String owns the string value, but this method returns the pointer to the object created.
         Self::with_vm(ObjectType::Function(Box::new(fun_obj)), vm)
+    }
+    
+    /// Creates `Object` of type `FunctionObject` at runtime.
+    pub fn from_native_object(
+        native_obj: NativeFn,
+        vm: &mut VM,
+    ) -> Result<ObjectPointer, VMError> {
+        // Create an owned pointer to string, not object it self, and pass to `with_vm` function. This distinction is important because ObjectType::String owns the string value, but this method returns the pointer to the object created.
+        Self::with_vm(ObjectType::Native(Box::new(native_obj)), vm)
     }
 }
 
