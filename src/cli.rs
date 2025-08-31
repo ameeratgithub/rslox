@@ -61,14 +61,27 @@ pub fn repl() {
                 let function_type = FunctionType::Script(Box::new(FunctionObject::new()));
                 context.push(CompilerState::new(function_type));
 
-                let top_function = context.compile().unwrap();
+                let top_function = context.compile();
+
+                if let Err(e) = top_function {
+                    println!("{e}");
+                    continue;
+                }
+
+                let top_function = top_function.unwrap();
                 // Value on stack should be garbage collected
                 let stack_value = top_function.clone();
                 vm.replace_or_push(stack_value, 0);
-                vm.call(top_function, 0).unwrap();
-                vm.interpret().unwrap();
-                // just run the code and display errors if any
-                // execute(source, &mut vm);
+
+                let call_result = vm.call(top_function, 0);
+                if let Err(e) = call_result {
+                    println!("{e}");
+                    continue;
+                }
+                let interpret_result = vm.interpret();
+                if let Err(e) = interpret_result {
+                    println!("{e}");
+                }
                 vm.reset_vm();
             }
             // Display error if reading line from cli is unsuccessful
