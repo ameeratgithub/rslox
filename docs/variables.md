@@ -9,6 +9,28 @@ var age = 22;
 ```
 Since '22' is a constant, and is a number, compiler will treat `age` as a number. Sometimes compiler doesn't know about data type of a variable, it will be resolved at runtime. You can learn more about this in functions.
 
+### Naming variables
+A variable name should only be started with either underscore, or a valid english alphabet. You can use digits after an underscore or after a character. Naming convention for declaring variables and functions is camelCase, where first letter of first word is lower case, and first letter of each of subsequent words is upper case. 
+
+Following are some examples of valid variable names:
+
+```javascript
+var _name;
+var n_ame;
+var name_;
+var n2me_;
+var name;
+var name1000;
+```
+
+When you put a number in front of a variable, or a special character in a variable, compiler will complain about it. These are invalid variable names.
+
+```javascript
+var 2name;
+var n@me;
+var _name#;
+```
+
 ### Reading variables
 You can use variables just like expressions, because they hold some data. If a variable isn't initialized explicitly, they have a `nil` value by default. Variables can be used as a whole expression, as well as a part of a complex expression. So this code is valid
 ```javascript
