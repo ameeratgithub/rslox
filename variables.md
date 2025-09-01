@@ -41,6 +41,36 @@ Runtime Error: Undefined variable 'a'
 [line 1] in <script>
 ```
 
+There is another interesting case when you try to assign variable itself while declaring. It shouldn't be valid. Consider this:
+```javascript
+var a = a;
+```
+`a` just got declared and shouldn't be assigned to itself. Doing so will throw an error. The error will be different for local variables and global variables. 
+For global variables, consider this:
+```javascript
+var a = 10;
+var a = a;
+print a + "\n";
+var b = b;
+print a + "\n";
+```
+Since `b` isn't already defined, you'll see the error
+```bash
+Undefined variable 'b'
+```
+Because global variables are allowed to be re-declared, `var a=a;` is valid.
+
+For local variables, the case is a bit different. You can't re-declare a variable, so when you do something like this:
+```javascript
+{
+    var name=name;
+}
+``` 
+You'll get the error:
+```bash
+[line 2] Error at 'name': Can't read local variable in its own initializer
+```
+
 ### Updating variables
 Variables in **rslox** are mutable by default. It means that you can declare a variable, and update its value later without any problem. Consider following code
 ```javascript
@@ -110,3 +140,36 @@ var a=20;
 print a;
 ```
 This is known as 'shadowing'. It's important for REPL where you can re-declare variables with the same name. Note that this is only allowed for global variables. Local variables don't support shadowing, and will throw an error.
+
+#### Local variables
+Variables defined in a block are local to that block. They can't be accessed outside the block. Let's look at following example.
+```javascript
+{
+    var language = "Rust";
+    print language + "\n";
+}
+print language + "\n";
+```
+
+You'll see output like this
+
+```bash
+Rust
+Undefined variable 'language'
+[line 1] in <script>
+```
+
+In the block, the variable is available, hence you can access it. But outside the block, variable is unknown. 
+
+As described earlier, you can't re-declare the variable in local scope. If you do something like this:
+```javascript
+{
+    var grade;
+    var grade;
+}
+```
+
+You'll get the following error.
+```bash
+Compiler Error: [line 3] Error at 'grade': Already a variable with this name in this scope.
+```

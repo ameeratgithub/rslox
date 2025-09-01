@@ -65,6 +65,7 @@ pub fn repl() {
 
                 if let Err(e) = top_function {
                     println!("{e}");
+                    line.clear();
                     continue;
                 }
 
@@ -76,6 +77,7 @@ pub fn repl() {
                 let call_result = vm.call(top_function, 0);
                 if let Err(e) = call_result {
                     println!("{e}");
+                    line.clear();
                     continue;
                 }
                 let interpret_result = vm.interpret();
