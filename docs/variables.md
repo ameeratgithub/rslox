@@ -1,5 +1,5 @@
 ## Variables
-You can declare variables using the keyword `var`. Since **rslox** is dynamically typed, so you don't need to specify the data type. Data type will be determined on compiled time and runtime. You can declare a variable like this:
+You can declare variables using the keyword `var`. Since **Rslox** is dynamically typed, so you don't need to specify the data type. Data type will be determined on compiled time and runtime. You can declare a variable like this:
 ```javascript
 var age;
 ``` 
@@ -72,7 +72,7 @@ You'll get the error:
 ```
 
 ### Updating variables
-Variables in **rslox** are mutable by default. It means that you can declare a variable, and update its value later without any problem. Consider following code
+Variables in **Rslox** are mutable by default. It means that you can declare a variable, and update its value later without any problem. Consider following code
 ```javascript
 // Declare and initialize a global variable
 var name = "Ameer";
