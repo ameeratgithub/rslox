@@ -143,7 +143,7 @@ impl<'a> CompilationContext<'a> {
         if self.compiler().function_type.is_script() {
             return Err(self.construct_token_error(false, "Can't return from top-level code."));
         }
-        
+
         if self.match_curr_ty(TokenType::Semicolon)? {
             self.emit_return()
         } else {

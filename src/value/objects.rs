@@ -52,6 +52,12 @@ impl Display for FunctionObject {
     }
 }
 
+impl Default for FunctionObject {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl FunctionObject {
     pub fn new() -> Self {
         Self {
@@ -62,7 +68,7 @@ impl FunctionObject {
     }
 
     fn init_chunk() -> Chunk {
-        Chunk::new()
+        Chunk::default()
     }
 }
 
@@ -130,12 +136,9 @@ impl Object {
         // Create an owned pointer to string, not object it self, and pass to `with_vm` function. This distinction is important because ObjectType::String owns the string value, but this method returns the pointer to the object created.
         Self::with_vm(ObjectType::Function(Box::new(fun_obj)), vm)
     }
-    
+
     /// Creates `Object` of type `FunctionObject` at runtime.
-    pub fn from_native_object(
-        native_obj: NativeFn,
-        vm: &mut VM,
-    ) -> Result<ObjectPointer, VMError> {
+    pub fn from_native_object(native_obj: NativeFn, vm: &mut VM) -> Result<ObjectPointer, VMError> {
         // Create an owned pointer to string, not object it self, and pass to `with_vm` function. This distinction is important because ObjectType::String owns the string value, but this method returns the pointer to the object created.
         Self::with_vm(ObjectType::Native(Box::new(native_obj)), vm)
     }

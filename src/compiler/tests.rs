@@ -6,7 +6,7 @@ use crate::{
 
 fn compile(code: &str) -> Result<FunctionObject, CompilerError> {
     let mut context = CompilationContext::new(code);
-    let function_type = FunctionType::Script(Box::new(FunctionObject::new()));
+    let function_type = FunctionType::default_script();
     context.push(CompilerState::new(function_type));
     context.compile()
 }

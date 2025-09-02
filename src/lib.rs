@@ -1,7 +1,8 @@
 use std::{fs, process};
 
 use crate::{
-    compiler::{types::FunctionType, CompilationContext, CompilerState}, value::objects::FunctionObject, vm::{errors::VMError, VM}
+    compiler::{CompilationContext, CompilerState, types::FunctionType},
+    vm::{VM, errors::VMError},
 };
 
 pub mod chunk;
@@ -20,7 +21,7 @@ fn execute(code: &str, vm: &mut VM) {
         vm.reset_vm();
         match e {
             VMError::CompileError(e) => {
-                eprintln!("Compiler Error: {}", e);
+                eprintln!("Compiler Error: {e}");
                 process::exit(65);
             }
             VMError::RuntimeError(e) => {
@@ -36,9 +37,9 @@ fn execute(code: &str, vm: &mut VM) {
 pub fn interpret(code: &str, vm: &mut VM) -> Result<(), VMError> {
     let mut context = CompilationContext::new(code);
 
-    let function_type = FunctionType::Script(Box::new(FunctionObject::new()));
+    let function_type = FunctionType::default_script();
     context.push(CompilerState::new(function_type));
-    let top_function = context.compile().map_err(|e| VMError::CompileError(e))?;
+    let top_function = context.compile().map_err(VMError::CompileError)?;
 
     // Value on stack should be garbage collected
     let stack_value = top_function.clone();

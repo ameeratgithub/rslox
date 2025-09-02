@@ -12,8 +12,8 @@ impl<'a> CompilationContext<'a> {
     pub(super) fn end_scope(&mut self) -> Result<(), CompilerError> {
         self.compiler_mut().scope_depth -= 1;
 
-        while self.compiler().locals.len() > 0
-            && self.compiler().locals[(self.compiler().locals.len() - 1) as usize].depth
+        while !self.compiler().locals.is_empty()
+            && self.compiler().locals[self.compiler().locals.len() - 1].depth
                 > self.compiler().scope_depth
         {
             self.emit_byte(OpCode::OpPop as u8)?;

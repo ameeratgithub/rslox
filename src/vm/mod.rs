@@ -15,8 +15,12 @@ use std::collections::HashMap;
 use crate::{
     chunk::OpCode,
     constants::FRAMES_MAX,
-    value::{objects::ObjectNode, Value},
-    vm::{call_frame::CallFrame, errors::VMError, native::{clock_native, println}},
+    value::{Value, objects::ObjectNode},
+    vm::{
+        call_frame::CallFrame,
+        errors::VMError,
+        native::{clock_native, println},
+    },
 };
 
 /// Data structure to handle a stack based virtual machine
@@ -28,6 +32,12 @@ pub struct VM {
     /// A Datastructure, also known as HashTable, to store global variables for faster insertion and lookup.
     globals: HashMap<String, Value>,
     pub frames: Vec<CallFrame>,
+}
+
+impl Default for VM {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl VM {
@@ -101,7 +111,7 @@ impl VM {
                         let v = self.pop().ok_or_else(||
                             // Return error if value on stack is not found
                             self.construct_runtime_error(format_args!("Expected value on the stack")))?;
-                        print!("{}", v);
+                        print!("{v}");
                     }
                     OpCode::OpGetLocal => self.op_get_local(),
                     OpCode::OpSetLocal => self.op_set_local(),

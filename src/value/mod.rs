@@ -2,14 +2,12 @@ mod conversions;
 pub mod objects;
 mod operators;
 
-use std::{
-    ptr::NonNull,
-};
+use std::ptr::NonNull;
 
 use crate::{
-    value::objects::{FunctionObject, NativeFn, Object, ObjectPointer, ObjectType}, vm::{errors::VMError, VM}
+    value::objects::{FunctionObject, NativeFn, Object, ObjectPointer, ObjectType},
+    vm::{VM, errors::VMError},
 };
-
 
 #[derive(Debug, Clone, PartialEq)]
 /// This stores literal values, you can say copy type or values stored on the stack. String in this enum is not created at runtime, and should only be consumed by compiler to write relevant bytecode
@@ -52,7 +50,7 @@ impl Value {
         let obj_pointer = Object::from_function_object(value, vm)?;
         Ok(Self::Obj(obj_pointer))
     }
-    
+
     /// Creates a `Value` object from the `FunctionObject`. Since it's created at runtime, it'll have `Obj` variant
     pub fn from_runtime_native(value: NativeFn, vm: &mut VM) -> Result<Value, VMError> {
         let obj_pointer = Object::from_native_object(value, vm)?;
@@ -139,7 +137,7 @@ impl Value {
             _ => unreachable!(),
         }
     }
-    
+
     /// Returns the reference to the native object
     pub fn as_native_ref(&self) -> &NativeFn {
         match self {
@@ -183,39 +181,39 @@ impl Value {
 
     /// Checks if the string is of type `Literal`, and is created at compile time
     pub fn is_literal_string(&self) -> bool {
-        match self {
-            Self::Literal(Literal::String(_)) => true,
-            _ => false,
-        }
+        matches!(self, Self::Literal(Literal::String(_)))
     }
 
     /// Checks if the string is of type `Obj`, and is created at runtime
     pub fn is_object_string(&self) -> bool {
         unsafe {
-            match self {
-                Self::Obj(obj) if matches!((obj.as_ref()).ty, ObjectType::String(_)) => true,
-                _ => false,
-            }
+            matches!(self, Self::Obj(obj) if matches!((obj.as_ref()).ty, ObjectType::String(_)))
+            // match self {
+            //     Self::Obj(obj) if matches!((obj.as_ref()).ty, ObjectType::String(_)) => true,
+            //     _ => false,
+            // }
         }
     }
 
     /// Checks if the string is of type `Obj`, and is created at runtime
     pub fn is_function(&self) -> bool {
         unsafe {
-            match self {
-                Self::Obj(obj) if matches!((obj.as_ref()).ty, ObjectType::Function(_)) => true,
-                _ => false,
-            }
+            matches!(self, Self::Obj(obj) if matches!((obj.as_ref()).ty, ObjectType::Function(_)))
+            // match self {
+            //     Self::Obj(obj) if matches!((obj.as_ref()).ty, ObjectType::Function(_)) => true,
+            //     _ => false,
+            // }
         }
     }
-    
+
     /// Checks if the string is of type `Obj`, and is created at runtime
     pub fn is_native(&self) -> bool {
         unsafe {
-            match self {
-                Self::Obj(obj) if matches!((obj.as_ref()).ty, ObjectType::Native(_)) => true,
-                _ => false,
-            }
+            matches!(self, Self::Obj(obj) if matches!((obj.as_ref()).ty, ObjectType::Native(_)))
+            // match self {
+            //     Self::Obj(obj) if matches!((obj.as_ref()).ty, ObjectType::Native(_)) => true,
+            //     _ => false,
+            // }
         }
     }
 

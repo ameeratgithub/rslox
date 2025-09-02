@@ -54,11 +54,11 @@ impl VM {
         // Check whether variable is defined or not
         if !self.globals.contains_key(&name) {
             // Variable has not been defined, return error.
-            return Err(self.construct_runtime_error(format_args!("Undefined variable '{}'", name)));
+            return Err(self.construct_runtime_error(format_args!("Undefined variable '{name}'")));
         }
         // Variable has been defined. Update it's value
         self.globals.insert(name, value);
-        
+
         Ok(())
     }
 }

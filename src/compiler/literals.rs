@@ -2,7 +2,7 @@ use std::num::ParseFloatError;
 
 use crate::{
     chunk::OpCode,
-    compiler::{errors::CompilerError, CompilationContext},
+    compiler::{CompilationContext, errors::CompilerError},
     scanner::token::TokenType,
     value::Value,
 };

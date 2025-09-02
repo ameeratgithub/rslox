@@ -11,7 +11,7 @@ impl Display for FunctionType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Script(s) => {
-                write!(f, "Top-Level Script: {}", s)
+                write!(f, "Top-Level Script: {s}")
             }
             Self::Function(fun) => {
                 write!(f, "Function: {fun}")
@@ -22,30 +22,24 @@ impl Display for FunctionType {
 
 impl FunctionType {
     pub fn default_function() -> Self {
-        Self::Function(Box::new(FunctionObject::new()))
+        Self::Function(Box::default())
     }
 
     pub fn default_script() -> Self {
-        Self::Script(Box::new(FunctionObject::new()))
+        Self::Script(Box::default())
     }
 
     pub fn is_script(&self) -> bool {
-        match self {
-            Self::Script(_) => true,
-            _ => false,
-        }
+        matches!(self, Self::Script(_))
     }
     pub fn is_function(&self) -> bool {
-        match self {
-            Self::Function(_) => true,
-            _ => false,
-        }
+        matches!(self, Self::Function(_))
     }
 }
 
-impl Into<FunctionObject> for FunctionType {
-    fn into(self) -> FunctionObject {
-        match self {
+impl From<FunctionType> for FunctionObject {
+    fn from(val: FunctionType) -> FunctionObject {
+        match val {
             FunctionType::Function(fun) => *fun,
             FunctionType::Script(script) => *script,
         }

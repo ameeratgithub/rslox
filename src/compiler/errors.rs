@@ -1,4 +1,4 @@
-use crate::compiler::{parser::ParserError, CompilationContext};
+use crate::compiler::{CompilationContext, parser::ParserError};
 
 /// Custom Errors for compiler
 #[derive(Debug)]
@@ -13,10 +13,10 @@ impl std::fmt::Display for CompilerError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::ParserError(error) => {
-                write!(f, "{}", error)
+                write!(f, "{error}")
             }
             Self::ExpressionError(error) => {
-                write!(f, "{}", error)
+                write!(f, "{error}")
             }
             Self::ChunkError => {
                 write!(f, "Chunk not found for current function")

@@ -3,7 +3,6 @@ use std::io::{self, Write};
 
 use crate::{
     compiler::{CompilationContext, CompilerState, types::FunctionType},
-    value::objects::FunctionObject,
     vm::VM,
 };
 use clap::Parser;
@@ -21,7 +20,6 @@ pub fn repl() {
     let mut stdout = io::stdout();
     let mut line = String::new();
 
-    // let mut chunk = Chunk::new();
     let mut vm = VM::new();
 
     loop {
@@ -29,7 +27,7 @@ pub fn repl() {
 
         // Display `>` on the screen.
         if let Err(e) = stdout.flush() {
-            eprintln!("Error flushing stdout: {}", e);
+            eprintln!("Error flushing stdout: {e}");
             break;
         }
 
@@ -58,7 +56,7 @@ pub fn repl() {
                 }
 
                 let mut context = CompilationContext::new(&line);
-                let function_type = FunctionType::Script(Box::new(FunctionObject::new()));
+                let function_type = FunctionType::default_script();
                 context.push(CompilerState::new(function_type));
 
                 let top_function = context.compile();
@@ -88,7 +86,7 @@ pub fn repl() {
             }
             // Display error if reading line from cli is unsuccessful
             Err(e) => {
-                eprintln!("Error reading line: {}", e);
+                eprintln!("Error reading line: {e}");
                 break;
             }
         }
