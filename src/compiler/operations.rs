@@ -8,7 +8,7 @@ use crate::{
     scanner::token::TokenType,
 };
 
-impl<'a> CompilationContext<'a> {
+impl CompilationContext<'_> {
     // Performs the logical 'AND' operation between two boolean values.
     pub(super) fn logical_and(&mut self, _: bool) -> Result<(), CompilerError> {
         // Left hand expression has already been evaluated and result would be on stack.
@@ -62,11 +62,11 @@ impl<'a> CompilationContext<'a> {
             TokenType::EqualEqual => self.emit_byte(OpCode::OpEqual as u8)?,
             TokenType::Greater => self.emit_byte(OpCode::OpGreater as u8)?,
             TokenType::GreaterEqual => {
-                self.emit_bytes(OpCode::OpLess as u8, OpCode::OpNot as u8)?
+                self.emit_bytes(OpCode::OpLess as u8, OpCode::OpNot as u8)?;
             }
             TokenType::Less => self.emit_byte(OpCode::OpLess as u8)?,
             TokenType::LessEqual => {
-                self.emit_bytes(OpCode::OpGreater as u8, OpCode::OpNot as u8)?
+                self.emit_bytes(OpCode::OpGreater as u8, OpCode::OpNot as u8)?;
             }
             // There isn't any other binary operator allowed
             _ => unreachable!(),

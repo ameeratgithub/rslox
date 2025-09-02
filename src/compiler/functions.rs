@@ -5,7 +5,7 @@ use crate::{
     value::objects::FunctionObject,
 };
 
-impl<'a> CompilationContext<'a> {
+impl CompilationContext<'_> {
     pub(super) fn compile_function(&mut self) -> Result<(), CompilerError> {
         let mut fun_ty = FunctionType::default_function();
         let mut fun_obj: FunctionObject = fun_ty.into();
@@ -27,13 +27,10 @@ impl<'a> CompilationContext<'a> {
                 );
 
                 let mut fun_obj: FunctionObject = fun_ty.into();
-                fun_obj.arity += 1;
 
-                if fun_obj.arity > 255 {
-                    return Err(
-                        self.construct_token_error(true, "Can't have more than 255 parameters")
-                    );
-                }
+                fun_obj.arity = fun_obj.arity.checked_add(1).ok_or_else(|| {
+                    self.construct_token_error(true, "Can't have more than 255 parameters")
+                })?;
 
                 let _ = std::mem::replace(&mut self.compiler_mut().function_type, fun_obj.into());
 

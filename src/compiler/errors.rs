@@ -25,7 +25,7 @@ impl std::fmt::Display for CompilerError {
     }
 }
 
-impl<'a> CompilationContext<'a> {
+impl CompilationContext<'_> {
     pub(super) fn construct_token_error(
         &mut self,
         is_current: bool,

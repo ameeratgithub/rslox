@@ -4,7 +4,7 @@ use crate::{
     scanner::token::TokenType,
 };
 
-impl<'a> CompilationContext<'a> {
+impl CompilationContext<'_> {
     /// Evaluates statements
     pub(super) fn statement(&mut self) -> Result<(), CompilerError> {
         if self.match_curr_ty(TokenType::Print)? {

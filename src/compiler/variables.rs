@@ -5,7 +5,7 @@ use crate::{
     scanner::token::{Token, TokenType},
 };
 
-impl<'a> CompilationContext<'a> {
+impl CompilationContext<'_> {
     /// Parses variable and generates bytecode for variable name, returns variable name's index of constant pool
     pub(super) fn parse_variable(&mut self, message: &str) -> Result<u8, CompilerError> {
         // Identifier, variable name in this case, would be consumed.
@@ -64,7 +64,6 @@ impl<'a> CompilationContext<'a> {
 
     fn resolve_local(&mut self, name: &Token) -> Result<i32, CompilerError> {
         for (i, local) in self.compiler().locals.iter().enumerate() {
-            // let local = &self.compiler().locals[i as usize];
             if self.are_identifiers_equal(name, &local.name) {
                 if local.depth == -1 {
                     return Err(self.construct_token_error(
@@ -72,7 +71,10 @@ impl<'a> CompilationContext<'a> {
                         "Can't read local variable in its own initializer",
                     ));
                 }
-                return Ok(i as i32);
+                let i = i32::try_from(i)
+                    .map_err(|_| self.construct_token_error(false, "Can't convert to i32"))?;
+
+                return Ok(i);
             }
         }
         Ok(-1)
@@ -125,15 +127,17 @@ impl<'a> CompilationContext<'a> {
 
         let arg = self.resolve_local(name)?;
         let variable_offset;
-        if arg != -1 {
-            // It's a local variable. `arg` is offset/index in `locals` vector
-            variable_offset = arg as u8;
-            get_opcode = OpCode::OpGetLocal;
-            set_opcode = OpCode::OpSetLocal;
-        } else {
+        if arg == -1 {
             variable_offset = self.identifier_constant(name)?;
             get_opcode = OpCode::OpGetGlobal;
             set_opcode = OpCode::OpSetGlobal;
+        } else {
+            // It's a local variable. `arg` is offset/index in `locals` vector
+            variable_offset = u8::try_from(arg).map_err(|_| {
+                self.construct_token_error(false, "Argument count is bigger than 255")
+            })?;
+            get_opcode = OpCode::OpGetLocal;
+            set_opcode = OpCode::OpSetLocal;
         }
 
         if can_assign && self.match_curr_ty(TokenType::Equal)? {

@@ -4,7 +4,7 @@ use crate::scanner::{
     token::{Token, TokenType},
 };
 
-impl<'a> Scanner<'a> {
+impl Scanner<'_> {
     /// Consumes remaining characters of a number
     /// First digit would already been consumed when this called
     pub(super) fn number(&mut self) -> Token {

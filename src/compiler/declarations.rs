@@ -4,7 +4,7 @@ use crate::{
     scanner::token::TokenType,
 };
 
-impl<'a> CompilationContext<'a> {
+impl CompilationContext<'_> {
     /// Responsible to handle all top level statements and declarations
     pub(super) fn declaration(&mut self) -> Result<(), CompilerError> {
         if self.match_curr_ty(TokenType::Fun)? {

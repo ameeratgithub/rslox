@@ -1,3 +1,5 @@
+use std::cmp::Ordering;
+
 use crate::{
     constants::FRAMES_MAX,
     value::Value,
@@ -5,21 +7,25 @@ use crate::{
 };
 
 impl VM {
-    pub(super) fn op_return(&mut self) -> Result<bool, VMError> {
+    pub(super) fn op_return(&mut self) -> bool {
         let result = self.pop().unwrap();
-        if self.frames.len() == 1 {
-            self.pop();
-            // End of bytecode
-            return Ok(true);
-        } else if self.frames.len() > 1 {
-            self.pop();
-            self.pop();
+        match self.frames.len().cmp(&1) {
+            Ordering::Equal => {
+                self.pop();
+                // End of bytecode
+                return true;
+            }
+            Ordering::Greater => {
+                self.pop();
+                self.pop();
+            }
+            Ordering::Less => {}
         }
 
         self.push(result);
         self.frames.pop();
         // It's just end of a called function, not end of bytecode.
-        Ok(false)
+        false
     }
 
     pub(super) fn op_call(&mut self) -> Result<(), VMError> {
@@ -50,8 +56,12 @@ impl VM {
         Err(self.construct_runtime_error(format_args!("Can only call functions and classes")))
     }
 
+    ///
+    ///  # Errors
+    ///
+    /// Returns a `VM` error if there's a problem creating stack frame for function
     pub fn call(&mut self, function: Value, arg_count: u8) -> Result<(), VMError> {
-        let arity = function.as_function_ref().arity as u8;
+        let arity = function.as_function_ref().arity;
 
         if arg_count != arity {
             let error = self.construct_runtime_error(format_args!(

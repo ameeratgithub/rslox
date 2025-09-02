@@ -19,11 +19,13 @@ pub(super) fn clock_native(_arg_count: u8, _values: Vec<Value>) -> Value {
     duration.as_secs_f64().into()
 }
 
+#[allow(clippy::needless_pass_by_value)]
 pub(super) fn println(_arg_count: u8, values: Vec<Value>) -> Value {
-    if !values.is_empty() {
-        println!("{}", values[0]);
-    } else {
+    if values.is_empty() {
         println!();
+    } else {
+        println!("{}", values[0]);
     }
+
     Value::new_nil()
 }

@@ -35,7 +35,7 @@ impl From<Value> for ObjectPointer {
             Value::Obj(n) => n,
             // Can't handle errors at this level, errors are handled on compiler level
             // for detailed output
-            _ => unreachable!(),
+            Value::Literal(_) => unreachable!(),
         }
     }
 }
@@ -61,7 +61,7 @@ impl From<Value> for String {
                     ObjectType::Native(_f) => "<native>".to_string(),
                 }
             },
-            _ => format!("{val}"),
+            Value::Literal(_) => format!("{val}"),
         }
     }
 }
@@ -88,7 +88,7 @@ impl From<Value> for FunctionObject {
             },
             // Can't handle errors at this level, errors are handled on compiler level
             // for detailed output
-            _ => unreachable!(),
+            Value::Literal(_) => unreachable!(),
         }
     }
 }
@@ -115,7 +115,7 @@ impl From<Value> for NativeFn {
             },
             // Can't handle errors at this level, errors are handled on compiler level
             // for detailed output
-            _ => unreachable!(),
+            Value::Literal(_) => unreachable!(),
         }
     }
 }

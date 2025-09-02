@@ -15,6 +15,9 @@ pub struct Cli {
 }
 
 /// Starts a repl and execute code
+/// # Panics
+///
+/// This function should not Panic on `unwrap` because error is already checked.
 pub fn repl() {
     let stdin = io::stdin();
     let mut stdout = io::stdout();

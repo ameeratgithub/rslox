@@ -59,13 +59,13 @@ pub enum OpCode {
     /// Simply pops the value from the stack. Takes a single byte.
     OpPop = 15,
     /// Reads name of the variable from bytecode, gets value from bytecode, inserts variable name and value into a hashmap, called `globals`
-    /// Takes 2 bytes: 1 for OpCode, 1 to store position of variable in constant pool.
+    /// Takes 2 bytes: 1 for `OpCode`, 1 to store position of variable in constant pool.
     OpDefineGlobal = 16,
     /// Reads name of the variable from bytecode, gets value from the hashmap.
-    /// Takes 2 bytes: 1 for OpCode, 1 is the position of the variable in the constant pool.
+    /// Takes 2 bytes: 1 for `OpCode`, 1 is the position of the variable in the constant pool.
     OpGetGlobal = 17,
     /// Reads name of the variable from bytecode, gets value from the stack, and insert variable name and new value into `globals`.
-    /// Takes 2 bytes: 1 for OpCode, 1 is the position of the variable in the constant pool.
+    /// Takes 2 bytes: 1 for `OpCode`, 1 is the position of the variable in the constant pool.
     OpSetGlobal = 18,
 
     OpGetLocal = 19,
@@ -77,7 +77,7 @@ pub enum OpCode {
 }
 
 /// We need to convert `u8` to `OpCode`. Implementing `TryFrom` makes sense because `u8` can
-/// have value for which OpCode doesn't exist
+/// have value for which `OpCode` doesn't exist
 impl TryFrom<u8> for OpCode {
     type Error = ChunkError;
     fn try_from(value: u8) -> Result<Self, Self::Error> {
@@ -133,6 +133,7 @@ impl Default for Chunk {
 /// Implements functions for `Chunk`
 impl Chunk {
     /// Returns fresh instance of `Chunk`
+    #[must_use]
     pub fn new() -> Self {
         Self {
             code: vec![],

@@ -12,6 +12,7 @@ pub mod constants;
 #[cfg(feature = "debug_trace_execution")]
 pub mod debug;
 pub mod scanner;
+pub mod tests;
 pub mod value;
 pub mod vm;
 
@@ -32,8 +33,11 @@ fn execute(code: &str, vm: &mut VM) {
     }
 }
 
-// A separate function which returns errors. Can be helpfull when writing tests
-// to test against certain types of errors
+/// A separate function which returns errors. Can be helpfull when writing tests to test against certain types of errors
+///
+/// # Errors
+///
+/// Returns a `VMError` if compilation or execution gone wrong
 pub fn interpret(code: &str, vm: &mut VM) -> Result<(), VMError> {
     let mut context = CompilationContext::new(code);
 

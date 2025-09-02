@@ -1,10 +1,10 @@
 use crate::{
     chunk::OpCode,
     compiler::{CompilationContext, CompilerState, errors::CompilerError, types::FunctionType},
-    value::FunctionObject,
+    value::Value,
 };
 
-fn compile(code: &str) -> Result<FunctionObject, CompilerError> {
+fn compile(code: &str) -> Result<Value, CompilerError> {
     let mut context = CompilationContext::new(code);
     let function_type = FunctionType::default_script();
     context.push(CompilerState::new(function_type));
@@ -14,7 +14,7 @@ fn compile(code: &str) -> Result<FunctionObject, CompilerError> {
 #[test]
 fn test_var_declaration() {
     let fun_obj = compile("var a;").unwrap();
-    let code = fun_obj.chunk.code;
+    let code = &fun_obj.as_function_ref().chunk.code;
     let expected_value = vec![
         // Bytecode for Value of the expression evaluated. Since the code doesn't have any value, it automatically assigns `OpCode::OpNil`. Expression should be evaluated first, so it comes on the stack first
         OpCode::OpNil as u8,
@@ -24,13 +24,13 @@ fn test_var_declaration() {
         OpCode::OpNil as u8,    // Since it's a top level function, it always returns `Nil`
         OpCode::OpReturn as u8, // OpCode::OpReturn to stop the virtual machine.
     ];
-    assert_eq!(code, expected_value);
+    assert_eq!(code, &expected_value);
 }
 
 #[test]
 fn test_var_initialization() {
     let fun_obj = compile(r#"var a= 10 + 20;"#).unwrap();
-    let code = fun_obj.chunk.code;
+    let code = &fun_obj.as_function_ref().chunk.code;
     let expected_value = vec![
         OpCode::OpConstant as u8, // Constant OpCode
         1, // Position of constant value in constant pool, 20 has position 1 but will be emitted first
@@ -42,13 +42,13 @@ fn test_var_initialization() {
         OpCode::OpNil as u8,    // Since it's a top level function, it always returns `Nil`
         OpCode::OpReturn as u8, // OpCode::OpReturn to stop the virtual machine.
     ];
-    assert_eq!(code, expected_value);
+    assert_eq!(code, &expected_value);
 }
 
 #[test]
 fn test_print_statement() {
     let fun_obj = compile(r#"print "Hamza";"#).unwrap();
-    let code = fun_obj.chunk.code;
+    let code = &fun_obj.as_function_ref().chunk.code;
     let expected_value = vec![
         OpCode::OpConstant as u8, // Constant OpCode
         0,                        // Position of constant value in constant pool
@@ -56,7 +56,7 @@ fn test_print_statement() {
         OpCode::OpNil as u8,      // Since it's a top level function, it always returns `Nil`
         OpCode::OpReturn as u8,   // OpCode::OpReturn to stop the virtual machine.
     ];
-    assert_eq!(code, expected_value);
+    assert_eq!(code, &expected_value);
 }
 
 #[test]
@@ -71,7 +71,7 @@ fn test_function_declaration() {
     ",
     )
     .unwrap();
-    let code = fun_obj.chunk.code;
+    let code = &fun_obj.as_function_ref().chunk.code;
     let expected_bytecode = vec![
         OpCode::OpConstant as u8,     // Instruction for OpConstant
         1,                            // Position for value on constant pool
@@ -86,5 +86,5 @@ fn test_function_declaration() {
         OpCode::OpReturn as u8,       // OpReturn
     ];
 
-    assert_eq!(expected_bytecode, code);
+    assert_eq!(&expected_bytecode, code);
 }
