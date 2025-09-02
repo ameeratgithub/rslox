@@ -5,7 +5,7 @@
 To get started, you need to download the software from the release page.
 
 ### Installation
-1. Go to the [latest](https://github.com/ameeratgithub/rslox/releases/tag/v0.1.1) release page.
+1. Go to the [latest](https://github.com/ameeratgithub/rslox/releases/tag/0.1.1) release page.
 2. Download the binary for your operating system
 3. For windows
    1. Double click on the installer and follow the instructions. 
