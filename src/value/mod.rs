@@ -41,78 +41,97 @@ pub enum Value {
 
 impl Value {
     /// Creates a `Value` object from the `String`. Since it's created at runtime, it'll have `Obj` variant
+    /// # Errors
+    ///
+    /// Returns a `VMError` when `ObjectPointer` creation fails
     pub fn from_runtime_str(value: String, vm: &mut VM) -> Result<Value, VMError> {
         let obj_pointer = Object::from_str(value, vm)?;
         Ok(Self::Obj(obj_pointer))
     }
     /// Creates a `Value` object from the `FunctionObject`. Since it's created at runtime, it'll have `Obj` variant
+    /// # Errors
+    ///
+    /// Returns a `VMError` when `ObjectPointer` creation fails
     pub fn from_runtime_function(value: FunctionObject, vm: &mut VM) -> Result<Value, VMError> {
         let obj_pointer = Object::from_function_object(value, vm)?;
         Ok(Self::Obj(obj_pointer))
     }
 
     /// Creates a `Value` object from the `FunctionObject`. Since it's created at runtime, it'll have `Obj` variant
+    /// # Errors
+    ///
+    /// Returns a `VMError` when `ObjectPointer` creation fails
     pub fn from_runtime_native(value: NativeFn, vm: &mut VM) -> Result<Value, VMError> {
         let obj_pointer = Object::from_native_object(value, vm)?;
         Ok(Self::Obj(obj_pointer))
     }
 
     /// Used to generate constant default/Nil value.
+    #[must_use]
     pub const fn new_nil() -> Value {
         Value::Literal(Literal::Nil)
     }
 
     /// If value is pf boolean type, returns true
+    #[must_use]
     pub fn is_bool(&self) -> bool {
         matches!(self, Self::Literal(Literal::Bool(_)))
     }
 
     /// If value is nil, returns true
+    #[must_use]
     pub fn is_nil(&self) -> bool {
         matches!(self, Self::Literal(Literal::Nil))
     }
 
     /// Returns true if value is a number
+    #[must_use]
     pub fn is_number(&self) -> bool {
         matches!(self, Self::Literal(Literal::Number(_)))
     }
 
     /// Returns true if value is an object
+    #[must_use]
     pub fn is_object(&self) -> bool {
         matches!(self, Self::Obj(_))
     }
 
     /// Used to invert the truthy value
+    #[must_use]
     pub fn is_falsey(self) -> bool {
         self.is_nil() || (self.is_bool() && !(Into::<bool>::into(self)))
     }
 
     /// Destroys the value object, because `self` is moved, and gets inner `f64`
+    #[must_use]
     pub fn to_number(self) -> f64 {
         self.into()
     }
 
     /// Destroys the value object, because `self` is moved, and gets inner `ObjectPointer`
+    #[must_use]
     pub fn as_object(self) -> ObjectPointer {
         self.into()
     }
 
     /// Returns the reference to inner `ObjectPointer`.
+    #[must_use]
     pub fn as_object_ref(&self) -> &ObjectPointer {
         match self {
             Self::Obj(op) => op,
-            _ => unreachable!(),
+            Self::Literal(_) => unreachable!(),
         }
     }
     /// Returns the mutable reference to inner `ObjectPointer`.
     pub fn as_object_mut(&mut self) -> &mut Object {
         match self {
             Self::Obj(op) => unsafe { op.as_mut() },
-            _ => unreachable!(),
+            Self::Literal(_) => unreachable!(),
         }
     }
 
     /// Returns the reference to the function object
+    #[must_use]
     pub fn as_function_ref(&self) -> &FunctionObject {
         match self {
             Self::Obj(obj) => unsafe {
@@ -121,7 +140,7 @@ impl Value {
                     _ => unreachable!(),
                 }
             },
-            _ => unreachable!(),
+            Self::Literal(_) => unreachable!(),
         }
     }
 
@@ -134,11 +153,12 @@ impl Value {
                     _ => unreachable!(),
                 }
             },
-            _ => unreachable!(),
+            Self::Literal(_) => unreachable!(),
         }
     }
 
     /// Returns the reference to the native object
+    #[must_use]
     pub fn as_native_ref(&self) -> &NativeFn {
         match self {
             Self::Obj(obj) => unsafe {
@@ -147,7 +167,7 @@ impl Value {
                     _ => unreachable!(),
                 }
             },
-            _ => unreachable!(),
+            Self::Literal(_) => unreachable!(),
         }
     }
 
@@ -160,64 +180,60 @@ impl Value {
                     _ => unreachable!(),
                 }
             },
-            _ => unreachable!(),
+            Self::Literal(_) => unreachable!(),
         }
     }
 
     /// Destroys the value object, because `self` is moved, and gets the inner `NativeFn`
+    #[must_use]
     pub fn as_native_object(self) -> NativeFn {
         self.into()
     }
 
     /// Destroys the value object, because `self` is moved, and gets the inner `FunctionObject`
+    #[must_use]
     pub fn as_function_object(self) -> FunctionObject {
         self.into()
     }
 
     /// Destroys the value object, because `self` is moved, and gets the inner `String`
+    #[must_use]
     pub fn as_string(self) -> String {
         self.into()
     }
 
     /// Checks if the string is of type `Literal`, and is created at compile time
+    #[must_use]
     pub fn is_literal_string(&self) -> bool {
         matches!(self, Self::Literal(Literal::String(_)))
     }
 
     /// Checks if the string is of type `Obj`, and is created at runtime
+    #[must_use]
     pub fn is_object_string(&self) -> bool {
         unsafe {
             matches!(self, Self::Obj(obj) if matches!((obj.as_ref()).ty, ObjectType::String(_)))
-            // match self {
-            //     Self::Obj(obj) if matches!((obj.as_ref()).ty, ObjectType::String(_)) => true,
-            //     _ => false,
-            // }
         }
     }
 
     /// Checks if the string is of type `Obj`, and is created at runtime
+    #[must_use]
     pub fn is_function(&self) -> bool {
         unsafe {
             matches!(self, Self::Obj(obj) if matches!((obj.as_ref()).ty, ObjectType::Function(_)))
-            // match self {
-            //     Self::Obj(obj) if matches!((obj.as_ref()).ty, ObjectType::Function(_)) => true,
-            //     _ => false,
-            // }
         }
     }
 
     /// Checks if the string is of type `Obj`, and is created at runtime
+    #[must_use]
     pub fn is_native(&self) -> bool {
         unsafe {
             matches!(self, Self::Obj(obj) if matches!((obj.as_ref()).ty, ObjectType::Native(_)))
-            // match self {
-            //     Self::Obj(obj) if matches!((obj.as_ref()).ty, ObjectType::Native(_)) => true,
-            //     _ => false,
-            // }
         }
     }
 
     /// Checks if `Value` is a string
+    #[must_use]
     pub fn is_string(&self) -> bool {
         self.is_object_string() || self.is_literal_string()
     }

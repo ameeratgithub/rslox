@@ -5,7 +5,7 @@ use crate::{
     value::Value,
 };
 
-impl<'a> CompilationContext<'a> {
+impl CompilationContext<'_> {
     /// Gets the variable name from source code and adds that name into constant pool of bytecode
     pub(super) fn identifier_constant(&mut self, name: &Token) -> Result<u8, CompilerError> {
         // Get name of the variable from source code and store as a string
@@ -36,11 +36,11 @@ impl<'a> CompilationContext<'a> {
     pub(super) fn emit_loop(&mut self, loop_start: usize) -> Result<(), CompilerError> {
         self.emit_byte(OpCode::OpLoop as u8)?;
         let offset = self.compiler_mut().chunk().code.len() - loop_start + 2;
-        if offset > u16::MAX as usize {
-            let err = self.construct_token_error(false, "Loop body too large");
-            return Err(err);
-        }
-        let offset_bytes = u16::to_be_bytes(offset as u16);
+
+        let offset = u16::try_from(offset)
+            .map_err(|_| self.construct_token_error(false, "Loop body too large"))?;
+
+        let offset_bytes = u16::to_be_bytes(offset);
         self.emit_byte(offset_bytes[0])?;
         self.emit_byte(offset_bytes[1])
     }
@@ -60,13 +60,14 @@ impl<'a> CompilationContext<'a> {
         // 7. if code length is 50, then our then block should be of 38 bytes. Why? our code length was 12 when two place holder bytes were emitted. 12 + 38 = 50.
         // 8. to correctly calculate that jump position, we also need to subtract 2 from code length
         let jump = self.compiler_mut().chunk().code.len() - offset - 2;
-        if jump > (u16::MAX as usize) {
-            return Err(self.construct_token_error(false, "Too much code to jump over"));
-        }
+
+        let jump = u16::try_from(jump)
+            .map_err(|_| self.construct_token_error(false, "Too much code to jump over"))?;
+
         // Jump is 32-bit, so we want to extract 2nd least significant byte.
         // jump>>8 will discard the least-significant byte and will make 2nd least significant, a least significant one.
         // Because our result is in least significant byte now, we will 'mask' our byte, by making essentialy all other bytes, zeros.
-        let jump_bytes = (jump as u16).to_be_bytes();
+        let jump_bytes = jump.to_be_bytes();
         self.compiler_mut().chunk_mut().code[offset] = jump_bytes[0];
         // We've used our 2nd least significant byte, so we'll use least significant byte. It's already least significant, no need to right shift. Just set all other bytes to zeros, by masking.
         self.compiler_mut().chunk_mut().code[offset + 1] = jump_bytes[1];
@@ -77,10 +78,9 @@ impl<'a> CompilationContext<'a> {
     pub(super) fn make_constant(&mut self, value: Value) -> Result<u8, CompilerError> {
         let constant = self.compiler_mut().chunk_mut().add_constant(value);
         // Only allows 256 constants to be stored in constant pool
-        if constant > u8::MAX as usize {
-            return Err(self.construct_token_error(false, "Too many constants in one chunk"));
-        }
-        Ok(constant as u8)
+        let constant = u8::try_from(constant)
+            .map_err(|_| self.construct_token_error(false, "Too many constants in one chunk"))?;
+        Ok(constant)
     }
     /// Writes a byte to the `chunk`
     pub(super) fn emit_byte(&mut self, byte: u8) -> Result<(), CompilerError> {
@@ -91,7 +91,7 @@ impl<'a> CompilationContext<'a> {
         Ok(())
     }
 
-    /// Writes OpReturn instruction at the end of the bytecode
+    /// Writes `OpReturn` instruction at the end of the bytecode
     pub(super) fn emit_return(&mut self) -> Result<(), CompilerError> {
         self.emit_byte(OpCode::OpNil as u8)?;
         self.emit_byte(OpCode::OpReturn as u8)

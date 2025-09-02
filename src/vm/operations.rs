@@ -48,7 +48,7 @@ impl VM {
 
     // Performs the binary operation based on `opcode`.
     // `binary_op` should only be called when `opcode` supports binary operation.
-    pub(super) fn binary_op(&mut self, opcode: OpCode) -> Result<(), VMError> {
+    pub(super) fn binary_op(&mut self, opcode: &OpCode) -> Result<(), VMError> {
         // We're reading from left to right. So left operand got pushed first, then the right
         // operand got pushed. Let's say we're evaluating following expression
         // `2 - 1`
@@ -75,7 +75,7 @@ impl VM {
                 let operands_are_numbers = right_operand.is_number() && val.is_number();
                 let one_operand_is_string = right_operand.is_string() || val.is_string();
                 // We're only interested if both operands are numbers or both are strings
-                if operands_are_numbers || (one_operand_is_string && opcode == OpCode::OpAdd) {
+                if operands_are_numbers || (one_operand_is_string && opcode == &OpCode::OpAdd) {
                     Ok(val)
                 } else {
                     // Invalid operation on operands, return error

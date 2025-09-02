@@ -4,6 +4,8 @@ use crate::scanner::{
     token::{Token, TokenType},
 };
 
+use std::fmt::Write as _; // import without risk of name clashing
+
 /// Collection of errors related to Parser
 #[derive(Debug)]
 pub enum ParserError {
@@ -38,6 +40,7 @@ pub struct Parser<'a> {
 
 impl<'a> Parser<'a> {
     /// Returns a fresh instance of the scanner
+    #[must_use]
     pub fn new(scanner: Scanner<'a>) -> Self {
         Self {
             scanner,
@@ -46,6 +49,9 @@ impl<'a> Parser<'a> {
         }
     }
     /// Consumes the token, keeps track of past token and current token
+    /// # Errors
+    ///
+    /// Will return `Err` if scanner throws an error
     pub fn advance(&mut self) -> Result<(), ParserError> {
         // Assigns value to `self.previous`, we need `self.current` if error occures, so we
         // can't use `self.current.take()` to replace value of `self.current` by `None`
@@ -64,8 +70,11 @@ impl<'a> Parser<'a> {
         }
     }
 
-    /// Utility function to conditionaly consume token if it matches with desired
-    /// `TokenType`
+    /// Utility function to conditionaly consume token if it matches with desired `TokenType`
+    ///
+    /// # Errors
+    ///
+    /// Will throw an `Err` if token is not found or token is not matched with expected token
     pub fn consume(&mut self, other_ty: TokenType, message: &str) -> Result<(), ParserError> {
         let token = self.current.clone().ok_or(ParserError::TokenError(format!(
             "Expected token: {other_ty:?}, Found `None`"
@@ -82,12 +91,20 @@ impl<'a> Parser<'a> {
     }
 
     /// This returns error for previous token
+    /// # Panics
+    ///
+    /// This function should not panic because previous token already exists
+    #[must_use]
     pub fn error_at_previous(&self, message: &str) -> ParserError {
         // Safe to unwrap `previous` because value is present
         self.construct_error(self.previous.as_ref().unwrap(), message)
     }
 
     /// This returns error for current token
+    /// # Panics
+    ///
+    /// This function should not panic because `self.current` isn't `None`
+    #[must_use]
     pub fn error_at_current(&self, message: &str) -> ParserError {
         // Safe to unwrap `current` because value is present.
         self.construct_error(self.current.as_ref().unwrap(), message)
@@ -95,9 +112,9 @@ impl<'a> Parser<'a> {
 
     /// This method is important because it formats error nicely with line numbers
     fn construct_error(&self, token: &Token, message: &str) -> ParserError {
-        let mut err_msg = String::from("");
+        let mut err_msg = String::new();
         // Get line information from token and add to the message
-        err_msg.push_str(&format!("[line {}] Error", token.line));
+        let _ = write!(err_msg, "[line {}] Error", token.line);
 
         // Check if we've reached at the end
         if token.ty == TokenType::Eof {
@@ -108,10 +125,10 @@ impl<'a> Parser<'a> {
             // C implementation is different and that's not how we handle errors in Rust
         } else {
             // Gets invalid/problematic token and append to the error message
-            err_msg.push_str(&format!(" at '{}'", token.as_str(self.scanner.source)));
+            let _ = write!(err_msg, " at '{}'", token.as_str(self.scanner.source));
         }
         // Push the custom message at the end
-        err_msg.push_str(&format!(": {message}\n"));
+        let _ = writeln!(err_msg, ": {message}");
         // Return token error with formatted message
         ParserError::TokenError(err_msg)
     }

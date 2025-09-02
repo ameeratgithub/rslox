@@ -3,7 +3,7 @@ use crate::scanner::{
     token::{Token, TokenType},
 };
 
-impl<'a> Scanner<'a> {
+impl Scanner<'_> {
     /// Determines the type of the identifier
     fn identifier_type(&self) -> TokenType {
         // Since we've already consumed at least one character, it's safe to unwrap here
@@ -94,7 +94,7 @@ impl<'a> Scanner<'a> {
         //! an underscore `_`, to make it valid variable name.
         while let Some(c) = self.peek() {
             // Checks if character is valid for a variable name
-            if self.is_alpha(c) || c.is_ascii_digit() {
+            if Self::is_alpha(c) || c.is_ascii_digit() {
                 self.advance();
             } else {
                 // Break the loop if character couldn't be in valid variable name

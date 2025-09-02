@@ -29,7 +29,7 @@ pub struct VM {
     pub stack: Vec<Value>,
     /// A linked list to track Objects stored on heap, mainly used for garbage collection. Linked list is not the best data structure used for garbage collection. Just keeping it simple for now.
     pub objects: ObjectNode,
-    /// A Datastructure, also known as HashTable, to store global variables for faster insertion and lookup.
+    /// A Datastructure, also known as `HashTable`, to store global variables for faster insertion and lookup.
     globals: HashMap<String, Value>,
     pub frames: Vec<CallFrame>,
 }
@@ -42,6 +42,7 @@ impl Default for VM {
 
 impl VM {
     /// Returns a new instance of the VM
+    #[must_use]
     pub fn new() -> Self {
         Self {
             // All values should be nil/empty by default
@@ -55,6 +56,9 @@ impl VM {
     }
 
     /// Compiles source code, gets bytecode from compiler, and executes that bytecode
+    /// # Errors
+    ///
+    /// Returns `VMError` if there's any runtime error
     pub fn interpret(&mut self) -> Result<(), VMError> {
         self.define_native("clock", clock_native)?;
         self.define_native("println", println)?;
@@ -83,6 +87,9 @@ impl VM {
         &mut self.frames[top_index]
     }
 
+    /// # Errors
+    ///
+    /// Returns `VMError` if there's any runtime error
     pub fn run(&mut self) -> Result<(), VMError> {
         loop {
             #[cfg(feature = "debug_trace_execution")]
@@ -97,7 +104,7 @@ impl VM {
                     // It means this is final instruction in the byte code
                     OpCode::OpReturn => {
                         // If it's end of bytecode, just return.
-                        if self.op_return()? {
+                        if self.op_return() {
                             return Ok(());
                         }
                     }
@@ -137,7 +144,7 @@ impl VM {
                     | OpCode::OpMultiply
                     | OpCode::OpDivide
                     | OpCode::OpGreater
-                    | OpCode::OpLess => self.binary_op(opcode)?,
+                    | OpCode::OpLess => self.binary_op(&opcode)?,
 
                     // Push `Nil` onto the stack
                     OpCode::OpNil => {

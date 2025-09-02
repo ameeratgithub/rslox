@@ -58,10 +58,11 @@ pub struct ParseRule<'a> {
 impl<'a> ParseRule<'a> {
     /// Gets all the rules for every token type
     /// We'll be accessing these rules by index, so order should be the same
-    /// as the order of TokenType variants. We could assign numbers to each
-    /// TokenType, but it looks tedious. It may change in future though.
-    /// Another considerable Option is to use HashMap to store by TokenyType, which
+    /// as the order of `TokenType` variants. We could assign numbers to each
+    /// `TokenType`, but it looks tedious. It may change in future though.
+    /// Another considerable option is to use `HashMap` to store by `TokenyType`, which
     /// would be explored in future
+    #[allow(clippy::too_many_lines)]
     fn get_rules() -> [ParseRule<'a>; 40] {
         [
             // TokenType::LeftParen

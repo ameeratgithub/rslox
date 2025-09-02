@@ -1,5 +1,5 @@
 /// Supported characters and literals by our language.
-/// TokenType should be fixed, predictable and comparable to make implementation
+/// `TokenType` should be fixed, predictable and comparable to make implementation
 /// and error handling easier
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum TokenType {
@@ -60,14 +60,15 @@ pub struct Token {
     pub start: usize,
     /// Length of the token. Like `class` keyword has 5 characters and it's the length of
     /// the token in source string
-    pub length: u32,
+    pub length: usize,
     /// In which line of the source code the token appeares.
     pub line: i32,
 }
 
 impl Token {
     /// Returns the fresh instance of Token
-    pub fn new(ty: TokenType, start: usize, length: u32, line: i32) -> Self {
+    #[must_use]
+    pub fn new(ty: TokenType, start: usize, length: usize, line: i32) -> Self {
         Self {
             ty,
             start,
@@ -77,7 +78,8 @@ impl Token {
     }
 
     /// Returns string form of current token
+    #[must_use]
     pub fn as_str(&self, source: &str) -> String {
-        source[self.start..self.start + self.length as usize].to_owned()
+        source[self.start..self.start + self.length].to_owned()
     }
 }

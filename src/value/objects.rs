@@ -37,7 +37,7 @@ impl std::fmt::Display for ObjectType {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct FunctionObject {
-    pub arity: i32,
+    pub arity: u8,
     pub chunk: Chunk,
     pub name: Option<String>,
 }
@@ -59,6 +59,7 @@ impl Default for FunctionObject {
 }
 
 impl FunctionObject {
+    #[must_use]
     pub fn new() -> Self {
         Self {
             arity: 0,
@@ -89,11 +90,15 @@ pub struct Object {
 
 impl Object {
     /// Returns the fresh instance of `Object`
+    #[must_use]
     pub fn new(ty: ObjectType) -> Self {
         Self { ty, next: None }
     }
 
     /// All runtime objects should be created with this method. It's important for garbage collection
+    /// # Errors
+    ///
+    /// Will return an `Err` if raw pointer can't be created for object.
     pub fn with_vm(ty: ObjectType, vm: &mut VM) -> Result<ObjectPointer, VMError> {
         // Moves the reference of head of the list to the `objects` variable. `vm.objects` will be `None` after this.
         let objects = vm.objects.take();
@@ -123,12 +128,18 @@ impl Object {
     }
 
     /// Creates `Object` of type `String` on runtime.
+    /// # Errors
+    ///
+    /// Returns an `Err` when `ObjectPointer` creation fails
     pub fn from_str(value: String, vm: &mut VM) -> Result<ObjectPointer, VMError> {
         // Create an owned pointer to string, not object it self, and pass to `with_vm` function. This distinction is important because ObjectType::String owns the string value, but this method returns the pointer to the object created.
         Self::with_vm(ObjectType::String(Box::new(value)), vm)
     }
 
     /// Creates `Object` of type `FunctionObject` at runtime.
+    /// # Errors
+    ///
+    /// Returns an `Err` when `ObjectPointer` creation fails
     pub fn from_function_object(
         fun_obj: FunctionObject,
         vm: &mut VM,
@@ -138,6 +149,9 @@ impl Object {
     }
 
     /// Creates `Object` of type `FunctionObject` at runtime.
+    /// # Errors
+    ///
+    /// Returns an `Err` when `ObjectPointer` creation fails
     pub fn from_native_object(native_obj: NativeFn, vm: &mut VM) -> Result<ObjectPointer, VMError> {
         // Create an owned pointer to string, not object it self, and pass to `with_vm` function. This distinction is important because ObjectType::String owns the string value, but this method returns the pointer to the object created.
         Self::with_vm(ObjectType::Native(Box::new(native_obj)), vm)

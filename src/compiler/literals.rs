@@ -7,13 +7,13 @@ use crate::{
     value::Value,
 };
 
-impl<'a> CompilationContext<'a> {
+impl CompilationContext<'_> {
     pub(super) fn number(&mut self, _: bool) -> Result<(), CompilerError> {
         let error = self.construct_token_error(false, "Expected Number, found None");
         // Get previous token, which should be a number
         let token = self.parser.previous.as_ref().ok_or(error)?;
         // Extract number from source code.
-        let val = &self.source[token.start..token.start + token.length as usize];
+        let val = &self.source[token.start..token.start + token.length];
         // Try to parse number to the `Value`
         let val: f64 = val
             .parse()
@@ -45,7 +45,7 @@ impl<'a> CompilationContext<'a> {
         let start_index = token.start + 1;
         // Last index of token would be `length - 1`, and has ending double quotes
         // So, also skipping ending '"'
-        let end_index = start_index + (token.length as usize - 2);
+        let end_index = start_index + (token.length - 2);
         // String value from source code is getting copied into virtual machine
         let str = self.source[start_index..end_index].to_owned();
         // Create a Value object from String

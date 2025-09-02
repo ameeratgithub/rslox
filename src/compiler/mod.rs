@@ -47,6 +47,7 @@ pub struct CompilationContext<'a> {
 }
 
 impl<'a> CompilationContext<'a> {
+    #[must_use]
     pub fn new(source: &'a str) -> Self {
         let scanner: Scanner<'_> = Scanner::new(source);
         // Parser needs to scan tokens on demand, it'll need scanner object for that
@@ -71,19 +72,37 @@ impl<'a> CompilationContext<'a> {
         self.stack.push(compiler);
     }
 
+    ///
+    /// # Panics
+    ///
+    /// This function would panic when you try to get current reference of compiler from empty stack. It means there's some problem in implementation
+    #[must_use]
     pub fn compiler(&self) -> &CompilerState {
         self.stack.last().expect("Compiler stack is empty")
     }
 
+    ///
+    /// # Panics
+    ///
+    /// This function would panic when you try to get current mutable reference of compiler from empty stack. It means there's some problem in implementation
+    #[must_use]
     pub fn compiler_mut(&mut self) -> &mut CompilerState {
         self.stack.last_mut().expect("Compiler stack is empty")
     }
 
+    ///
+    /// # Panics
+    ///
+    /// This function would panic when you try to pop from empty stack. It means there's some problem in implementation
+    #[must_use]
     pub fn pop(&mut self) -> CompilerState {
         self.stack.pop().expect("Compiler stack is empty")
     }
 
-    // Responsible to generate byte code from source code
+    /// Responsible to generate byte code from source code
+    /// # Errors
+    ///
+    /// It will return errors when there are syntax errors and compiler can't proceed further
     pub fn compile(&mut self) -> Result<Value, CompilerError> {
         // Consumes first token
         // Important because we look back and see previous tokens
@@ -155,7 +174,7 @@ impl<'a> CompilationContext<'a> {
             Debug::dissassemble_chunk(&self.compiler().chunk(), name);
         }
 
-        self.pop();
+        let _ = self.pop();
         Ok(fun_obj.into())
     }
 }
@@ -172,7 +191,8 @@ pub struct CompilerState {
 }
 
 impl CompilerState {
-    /// Returns a fresh instance of `Compiler`
+    /// Returns a fresh instance of `CompilerState`
+    #[must_use]
     pub fn new(function_type: FunctionType) -> Self {
         Self {
             locals: Vec::with_capacity(UINT8_COUNT),

@@ -21,17 +21,22 @@ impl Display for FunctionType {
 }
 
 impl FunctionType {
+    #[must_use]
     pub fn default_function() -> Self {
         Self::Function(Box::default())
     }
 
+    #[must_use]
     pub fn default_script() -> Self {
         Self::Script(Box::default())
     }
 
+    #[must_use]
     pub fn is_script(&self) -> bool {
         matches!(self, Self::Script(_))
     }
+
+    #[must_use]
     pub fn is_function(&self) -> bool {
         matches!(self, Self::Function(_))
     }

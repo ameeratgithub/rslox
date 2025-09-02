@@ -4,7 +4,7 @@ use crate::{
     scanner::token::TokenType,
 };
 
-impl<'a> CompilationContext<'a> {
+impl CompilationContext<'_> {
     pub(super) fn begin_scope(&mut self) {
         self.compiler_mut().scope_depth += 1;
     }

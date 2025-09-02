@@ -7,7 +7,7 @@ use crate::{
     scanner::token::TokenType,
 };
 
-impl<'a> CompilationContext<'a> {
+impl CompilationContext<'_> {
     pub(super) fn expression(&mut self) -> Result<(), CompilerError> {
         // Parse expression based on precedence
         self.parse_precedence(Precedence::Assignment)?;

@@ -1,4 +1,5 @@
 use std::fmt::Arguments;
+use std::fmt::Write as _;
 
 use crate::{compiler::errors::CompilerError, vm::VM};
 
@@ -31,10 +32,10 @@ impl VM {
         for frame in self.frames.iter().rev() {
             let function = &frame.function.as_function_ref();
             let instruction = frame.ip_offset - 1;
-            message.push_str(&format!("[line {}] in ", function.chunk.lines[instruction]));
+            let _ = write!(message, "[line {}] in ", function.chunk.lines[instruction]);
 
             if let Some(name) = function.name.as_ref() {
-                message.push_str(&format!("{name}()\n"));
+                let _ = writeln!(message, "{name}()");
             } else {
                 message.push_str("<script>\n");
             }

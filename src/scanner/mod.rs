@@ -25,6 +25,7 @@ pub struct Scanner<'a> {
 
 impl<'a> Scanner<'a> {
     /// Returns the fresh instance of `Scanner`
+    #[must_use]
     pub fn new(source: &'a str) -> Self {
         Self {
             source,
@@ -37,11 +38,18 @@ impl<'a> Scanner<'a> {
     /// Checks if the character is alphabetical
     /// Should start with capital or small letter or underscore
     /// Used to check first character for identifiers or keywords
-    fn is_alpha(&self, c: char) -> bool {
+    fn is_alpha(c: char) -> bool {
         c.is_alphabetic() || c == '_'
     }
 
     /// This scan token on demand, and returns a single token
+    /// # Errors
+    ///
+    /// Returns an `Err` if an invalid token found. Like unterminated string.
+    ///
+    /// # Panics
+    ///
+    /// This function should not panic on `unwrap` because we already checked that we're not at the end of the file
     pub fn scan_token(&mut self) -> Result<Token, ScannerError> {
         // Ignore whitespaces at the start of the token
         self.skip_whitespace();
@@ -59,7 +67,7 @@ impl<'a> Scanner<'a> {
 
         // Return token identifier, if start of the lexeme is either an alphabet
         // or an underscore
-        if self.is_alpha(character) {
+        if Self::is_alpha(character) {
             return Ok(self.identifier());
         }
 
@@ -158,6 +166,7 @@ impl<'a> Scanner<'a> {
     }
 
     /// Returns if `current` pointer has been reached at the end of the source code
+    #[must_use]
     pub fn is_at_end(&self) -> bool {
         self.current >= self.source.len()
     }
@@ -223,11 +232,6 @@ impl<'a> Scanner<'a> {
 
     /// Makes a new token and return it
     fn make_token(&self, ty: TokenType) -> Token {
-        Token::new(
-            ty,
-            self.start,
-            (self.current - self.start) as u32,
-            self.line,
-        )
+        Token::new(ty, self.start, self.current - self.start, self.line)
     }
 }
