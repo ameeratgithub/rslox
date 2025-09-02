@@ -119,11 +119,11 @@ while (str) {
 On first iteration, `str` has truthy value, a string. `while` will consider it as true and control will enter the loop body. `str` will get printed and then `str` will be assigned `nil`, a falsey value. When control goes back to evaluate the `str` variable, it will detect that value is now 'falsey', loop will exit.
 
 #### For loop
-For loop in **Rslox** resembles for loop in many languages. It starts with `for` keyword, expects 3 statements in a pair of parenthesis and a body. First statement is variable declaration and initialization. Second is where you check if condition is true, and whether loop should continue or exit. Third statement is where you update your value.
+For loop in **Rslox** resembles for loop in many languages. It starts with `for` keyword, expects 1 declaration statement and 2 expressions, separated by semicolons, in a pair of parenthesis and a body. First statement is variable declaration and initialization. Second is where you check if condition is true, and whether loop should continue or exit. Third expression is where you update your value.
 
 ```javascript
 for (declaration;condition_check;value_update){
-// Body
+    // Body
 }
 ```
 
@@ -135,12 +135,11 @@ for (var i=0; i<5; i=i+1){
 }
 ```
 
-These 3 statements can be omitted, or a changed a bit. For example you can declare variable in for loop, or make it outside the loop like this:
+These all 3 constructs can be omitted, or a changed a bit. For example you can declare variable in for loop, or make it outside the loop like this:
 
 ```javascript
 var i;
 for (i=0;i<5;i=i+1){
-    // 
 }
 ```
 
@@ -149,20 +148,18 @@ Or completely omitting from first statement is also valid.
 ```javascript
 var i = 0;
 for (;i<5;i=i+1){
-    //
 }
 ```
 
-Last statement can also be emitted if you can update the state in body, like this
+Last expression can also be emitted if you can update the state in body, like this
 
 ```javascript
 var i = 0;
 for (;i<5;){
-    //
     i = i+1;
 }
 ```
 
-But eliminating middle statement, which is a condition check, will make the for loop run forever. Since **Rslox** doesn't currently support the `break` keyword, there's no way to exit the loop. That's why middle statement, the condition check, is important. 
+But eliminating middle expression, which is a condition check, will make the for loop run forever. Since **Rslox** doesn't currently support the `break` keyword, there's no way to exit the loop. That's why middle expression, the condition check, is important. 
 
-Also note that removing a statement doesn't mean you have to remove the semicolon. It's the semicolon which distiguish among the statements and is important for the control flow logic. 
+Also note that removing a expression doesn't mean you have to remove the semicolon. It's the semicolon which distiguish among expressions and is important for the control flow logic. 
