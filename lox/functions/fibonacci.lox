@@ -7,4 +7,5 @@ var start = clock();
 print fib(35) + "\n";
 
 var end = clock() - start;
+// May take more than 1 minute
 print "Time in seconds: " + end + "\n";
