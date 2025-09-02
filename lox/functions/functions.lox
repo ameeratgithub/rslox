@@ -7,12 +7,13 @@ fun getFullName(firstName, lastName){
     var fullName = firstName + " " + lastName;
     return fullName;
 }
-print getFullName("Ameer", "Hamza") + "\n";
+var fullName = getFullName("Ameer", "Hamza");
+println(fullName);
 
 fun complexAddition(a,b,c) {
   var d =  a + b;
   var e = d + c;
   return e;
 }
-
-print complexAddition(10 , 20, 30) + "\n";
+var result = complexAddition(10 , 20, 30);
+println(result);

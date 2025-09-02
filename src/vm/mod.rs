@@ -16,7 +16,7 @@ use crate::{
     chunk::OpCode,
     constants::FRAMES_MAX,
     value::{objects::ObjectNode, Value},
-    vm::{call_frame::CallFrame, errors::VMError, native::clock_native},
+    vm::{call_frame::CallFrame, errors::VMError, native::{clock_native, println}},
 };
 
 /// Data structure to handle a stack based virtual machine
@@ -47,6 +47,7 @@ impl VM {
     /// Compiles source code, gets bytecode from compiler, and executes that bytecode
     pub fn interpret(&mut self) -> Result<(), VMError> {
         self.define_native("clock", clock_native)?;
+        self.define_native("println", println)?;
         self.run()
     }
 

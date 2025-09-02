@@ -4,13 +4,14 @@ while (j<=5){
     j=j+1;
 }
 
-print "\n---------\n";
+println();
+println("---------");
 
 for (var i=0; i<5; i=i+1){
-    print "Index: "+ i+"\n";
+    println("Index: "+ i);
 }
 
-print "\n---------\n";
+println("---------");
 
 
 for (var i=0; i<5; i=i+1) {
@@ -22,5 +23,5 @@ for (var i=0; i<5; i=i+1) {
         print "*";
     }
 
-    print "\n";
+    println();
 }
