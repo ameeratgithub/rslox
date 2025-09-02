@@ -79,7 +79,7 @@ impl<'a> CompilationContext<'a> {
     }
 
     fn add_local_variable(&mut self, name: Token) -> Result<(), CompilerError> {
-        if self.compiler().locals.len() == UINT8_COUNT as usize {
+        if self.compiler().locals.len() == UINT8_COUNT {
             return Err(self.construct_token_error(false, "Too many local variables in scope"));
         }
 
@@ -97,7 +97,7 @@ impl<'a> CompilationContext<'a> {
         }
 
         let scope_depth = self.compiler().scope_depth;
-        let index = (self.compiler().locals.len() - 1) as usize;
+        let index = self.compiler().locals.len() - 1;
         let local = &mut self.compiler_mut().locals[index];
         local.depth = scope_depth;
     }
@@ -126,7 +126,7 @@ impl<'a> CompilationContext<'a> {
         let arg = self.resolve_local(name)?;
         let variable_offset;
         if arg != -1 {
-            // It's a local variable. `arg` is offset/index in `locals` vector 
+            // It's a local variable. `arg` is offset/index in `locals` vector
             variable_offset = arg as u8;
             get_opcode = OpCode::OpGetLocal;
             set_opcode = OpCode::OpSetLocal;

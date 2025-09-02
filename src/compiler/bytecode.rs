@@ -67,9 +67,9 @@ impl<'a> CompilationContext<'a> {
         // jump>>8 will discard the least-significant byte and will make 2nd least significant, a least significant one.
         // Because our result is in least significant byte now, we will 'mask' our byte, by making essentialy all other bytes, zeros.
         let jump_bytes = (jump as u16).to_be_bytes();
-        self.compiler_mut().chunk_mut().code[offset as usize] = jump_bytes[0];
+        self.compiler_mut().chunk_mut().code[offset] = jump_bytes[0];
         // We've used our 2nd least significant byte, so we'll use least significant byte. It's already least significant, no need to right shift. Just set all other bytes to zeros, by masking.
-        self.compiler_mut().chunk_mut().code[offset as usize + 1] = jump_bytes[1];
+        self.compiler_mut().chunk_mut().code[offset + 1] = jump_bytes[1];
         Ok(())
     }
 

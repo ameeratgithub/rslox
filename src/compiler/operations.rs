@@ -1,7 +1,9 @@
 use crate::{
     chunk::OpCode,
     compiler::{
-        errors::CompilerError, precedence::{ParseRule, Precedence}, CompilationContext,
+        CompilationContext,
+        errors::CompilerError,
+        precedence::{ParseRule, Precedence},
     },
     scanner::token::TokenType,
 };

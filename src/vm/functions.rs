@@ -34,16 +34,16 @@ impl VM {
             return self.call(callee, arg_count);
         } else if callee.is_native() {
             let native = callee.as_native_ref();
-            
+
             let mut values = vec![];
             for _ in 0..arg_count {
                 values.push(self.pop().unwrap());
             }
             self.pop();
-            
+
             let result = native(arg_count, values);
             self.push(result);
-            
+
             return Ok(());
         }
 
@@ -55,8 +55,7 @@ impl VM {
 
         if arg_count != arity {
             let error = self.construct_runtime_error(format_args!(
-                "Expected {} arguments but got {}.",
-                arity, arg_count
+                "Expected {arity} arguments but got {arg_count}."
             ));
             return Err(error);
         }

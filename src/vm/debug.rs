@@ -1,24 +1,21 @@
 use crate::vm::VM;
 
 impl VM {
+    #[cfg(feature = "debug_trace_execution")]
     pub(super) fn debug(&mut self) {
-        // This blocks executes only when this debug tracing feature is enabled.
-        #[cfg(feature = "debug_trace_execution")]
-        {
-            use crate::debug::Debug;
-            print!("          ");
-            for value in &self.stack {
-                print!("[ ");
-                print!("{}", value);
-                print!(" ]");
-            }
-            println!("");
-            let offset = self.current_frame().ip_offset;
-            Debug::dissassemble_instruction(
-                &self.current_frame().function.as_function_ref().chunk,
-                offset,
-            );
+        use crate::debug::Debug;
+        print!("          ");
+        for value in &self.stack {
+            print!("[ ");
+            print!("{}", value);
+            print!(" ]");
         }
+        println!("");
+        let offset = self.current_frame().ip_offset;
+        Debug::dissassemble_instruction(
+            &self.current_frame().function.as_function_ref().chunk,
+            offset,
+        );
     }
 
     /// Show items in garbadge collection

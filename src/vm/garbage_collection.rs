@@ -1,6 +1,12 @@
 use std::{collections::HashSet, ptr::NonNull};
 
-use crate::{value::{objects::{Object, ObjectPointer}, Value}, vm::VM};
+use crate::{
+    value::{
+        Value,
+        objects::{Object, ObjectPointer},
+    },
+    vm::VM,
+};
 
 impl VM {
     pub fn reset_vm(&mut self) {
@@ -70,7 +76,7 @@ impl VM {
                     let next = (*node.as_ptr()).next;
                     if let Some(mut prev_node) = prev {
                         // It isn't first node, set `prev.next` to `current.next`. It's like creating a link between nodes and removing itself from the middle
-                        (*prev_node.as_mut()).next = next;
+                        prev_node.as_mut().next = next;
                     } else {
                         // It's the first node, remove first node by setting itself to next
                         self.objects = next;

@@ -1,6 +1,8 @@
 use crate::{
     compiler::{
-        errors::CompilerError, precedence::{ParseRule, Precedence}, CompilationContext
+        CompilationContext,
+        errors::CompilerError,
+        precedence::{ParseRule, Precedence},
     },
     scanner::token::TokenType,
 };
@@ -27,9 +29,7 @@ impl<'a> CompilationContext<'a> {
     pub(super) fn parse_precedence(&mut self, precedence: Precedence) -> Result<(), CompilerError> {
         // Parser already advanced one time, so this is second advance call
         // So in the case of `2+1`, parser would be at `+`
-        self.parser
-            .advance()
-            .map_err(|e| CompilerError::ParserError(e))?;
+        self.parser.advance().map_err(CompilerError::ParserError)?;
 
         // Check if previous token has any prefix rule
         if let Some(prefix_rule) = ParseRule::get_parse_rule(self.get_previous_token_ty()?).prefix {
@@ -43,9 +43,7 @@ impl<'a> CompilationContext<'a> {
                 <= ParseRule::get_parse_rule(self.get_current_token_ty()?).precedence as u8
             {
                 // Consume token to get right operand
-                self.parser
-                    .advance()
-                    .map_err(|e| CompilerError::ParserError(e))?;
+                self.parser.advance().map_err(CompilerError::ParserError)?;
 
                 // It's the same operator who's precedence got compared.
                 // After calling advance, it becomes previous token

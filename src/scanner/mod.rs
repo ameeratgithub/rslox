@@ -6,9 +6,9 @@ use crate::scanner::{
 pub mod errors;
 mod identifier;
 mod literals;
-pub mod token;
 #[cfg(test)]
 mod tests;
+pub mod token;
 
 #[derive(Clone)]
 /// Data structure to scan the source code and return tokens

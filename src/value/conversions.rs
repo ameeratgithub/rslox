@@ -1,12 +1,14 @@
 use std::ptr::NonNull;
 
-use crate::value::{objects::NativeFn, FunctionObject, Literal, Object, ObjectPointer, ObjectType, Value};
+use crate::value::{
+    FunctionObject, Literal, Object, ObjectPointer, ObjectType, Value, objects::NativeFn,
+};
 
 /// Implements `Into` trait to extract `bool` from `Value::Bool`
-impl Into<bool> for Value {
-    fn into(self) -> bool {
-        match self {
-            Self::Literal(Literal::Bool(b)) => b,
+impl From<Value> for bool {
+    fn from(val: Value) -> Self {
+        match val {
+            Value::Literal(Literal::Bool(b)) => b,
             // Can't handle errors at this level, errors are handled on compiler level
             // for detailed output
             _ => unreachable!(),
@@ -15,10 +17,10 @@ impl Into<bool> for Value {
 }
 
 /// Implements `Into` trait to extract `f64` from `Value::Number`
-impl Into<f64> for Value {
-    fn into(self) -> f64 {
-        match self {
-            Self::Literal(Literal::Number(n)) => n,
+impl From<Value> for f64 {
+    fn from(val: Value) -> Self {
+        match val {
+            Value::Literal(Literal::Number(n)) => n,
             // Can't handle errors at this level, errors are handled on compiler level
             // for detailed output
             _ => unreachable!(),
@@ -27,10 +29,10 @@ impl Into<f64> for Value {
 }
 
 /// Implements `Into` trait to extract `Obj` from `Value::Obj`
-impl Into<ObjectPointer> for Value {
-    fn into(self) -> ObjectPointer {
-        match self {
-            Self::Obj(n) => n,
+impl From<Value> for ObjectPointer {
+    fn from(val: Value) -> Self {
+        match val {
+            Value::Obj(n) => n,
             // Can't handle errors at this level, errors are handled on compiler level
             // for detailed output
             _ => unreachable!(),
@@ -39,12 +41,12 @@ impl Into<ObjectPointer> for Value {
 }
 
 /// Implements `Into` trait to extract `Obj` from `Value::Obj`
-impl Into<String> for Value {
-    fn into(self) -> String {
-        match self {
+impl From<Value> for String {
+    fn from(val: Value) -> Self {
+        match val {
             // String is create at runtime, some unsafe code is needed to handle raw pointers.
             // Before calling `.into()`, it should be checked that value is indeed a string.
-            Self::Obj(n) => unsafe {
+            Value::Obj(n) => unsafe {
                 // Get the raw pointer to the string
                 let raw_ptr = n.as_ptr();
                 // Convert raw pointer to the owned pointer. It's unsafe operation. It's important to extract value from the `NonNull` pointer.
@@ -55,22 +57,22 @@ impl Into<String> for Value {
                 match (boxed_obj).ty {
                     // If Object is of type string, just move the string out of the box
                     ObjectType::String(s) => *s,
-                    ObjectType::Function(f) => format!("{}", f),
-                    ObjectType::Native(_f) => format!("<native>"),
+                    ObjectType::Function(f) => format!("{f}"),
+                    ObjectType::Native(_f) => "<native>".to_string(),
                 }
             },
-            _ => format!("{}", self),
+            _ => format!("{val}"),
         }
     }
 }
 
 /// Implements `Into` trait to extract `Obj` from `Value::Obj`
-impl Into<FunctionObject> for Value {
-    fn into(self) -> FunctionObject {
-        match self {
+impl From<Value> for FunctionObject {
+    fn from(val: Value) -> Self {
+        match val {
             // Function is created at runtime, some unsafe code is needed to handle raw pointers.
             // Before calling `.into()`, it should be checked that value is indeed a `FunctionObject`.
-            Self::Obj(n) => unsafe {
+            Value::Obj(n) => unsafe {
                 // Get the raw pointer to the `FunctionObject`
                 let raw_ptr = n.as_ptr();
                 // Convert raw pointer to the owned pointer. It's unsafe operation. It's important to extract value from the `NonNull` pointer.
@@ -92,12 +94,12 @@ impl Into<FunctionObject> for Value {
 }
 
 /// Implements `Into` trait to extract `Obj` from `Value::Obj`
-impl Into<NativeFn> for Value {
-    fn into(self) -> NativeFn {
-        match self {
+impl From<Value> for NativeFn {
+    fn from(val: Value) -> Self {
+        match val {
             // Function is created at runtime, some unsafe code is needed to handle raw pointers.
             // Before calling `.into()`, it should be checked that value is indeed a `FunctionObject`.
-            Self::Obj(n) => unsafe {
+            Value::Obj(n) => unsafe {
                 // Get the raw pointer to the `FunctionObject`
                 let raw_ptr = n.as_ptr();
                 // Convert raw pointer to the owned pointer. It's unsafe operation. It's important to extract value from the `NonNull` pointer.

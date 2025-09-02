@@ -7,9 +7,10 @@ use crate::{
     compiler::{errors::CompilerError, parser::Parser, types::FunctionType},
     constants::UINT8_COUNT,
     scanner::{
-        token::{Token, TokenType}, Scanner
+        Scanner,
+        token::{Token, TokenType},
     },
-    value::{objects::FunctionObject, Value},
+    value::{Value, objects::FunctionObject},
 };
 
 #[cfg(feature = "debug_trace_execution")]
@@ -86,9 +87,7 @@ impl<'a> CompilationContext<'a> {
     pub fn compile(&mut self) -> Result<Value, CompilerError> {
         // Consumes first token
         // Important because we look back and see previous tokens
-        self.parser
-            .advance()
-            .map_err(|e| CompilerError::ParserError(e))?;
+        self.parser.advance().map_err(CompilerError::ParserError)?;
         // Iterate til the end of the file. If current token is `Eof`, loop will end.
         while !self.match_curr_ty(TokenType::Eof)? {
             // Process statements
@@ -101,7 +100,7 @@ impl<'a> CompilationContext<'a> {
     fn consume(&mut self, ty: TokenType, message: &str) -> Result<(), CompilerError> {
         self.parser
             .consume(ty, message)
-            .map_err(|e| CompilerError::ParserError(e))
+            .map_err(CompilerError::ParserError)
     }
 
     /// Returns type of the current token
@@ -123,9 +122,7 @@ impl<'a> CompilationContext<'a> {
             return Ok(false);
         }
         // Token matches, consume token
-        self.parser
-            .advance()
-            .map_err(|e| CompilerError::ParserError(e))?;
+        self.parser.advance().map_err(CompilerError::ParserError)?;
         Ok(true)
     }
 

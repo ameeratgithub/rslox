@@ -40,10 +40,10 @@ impl VM {
         // Because it's a runtime operation, being executed by vm, it needs to create a value
         // by using special functions. This is important for garbage collection.
         let value = Value::from_runtime_str(left + &right, self)
-            .map_err(|err| self.construct_runtime_error(format_args!("{}", err)))?;
+            .map_err(|err| self.construct_runtime_error(format_args!("{err}")))?;
         self.push(value);
         // Return because our work here is done.
-        return Ok(());
+        Ok(())
     }
 
     // Performs the binary operation based on `opcode`.
@@ -153,7 +153,7 @@ impl VM {
                 } else {
                     // Since we can't negate other types, return error
                     let err_message = format_args!("Operand of ! operator should be a bool or nil");
-                    return Err(self.construct_runtime_error(err_message));
+                    Err(self.construct_runtime_error(err_message))
                 }
             })?;
 

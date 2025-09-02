@@ -1,8 +1,8 @@
 use crate::{
     chunk::OpCode,
-    compiler::{errors::CompilerError, types::FunctionType, CompilationContext},
+    compiler::{CompilationContext, errors::CompilerError, types::FunctionType},
     scanner::token::TokenType,
-    value::{objects::FunctionObject, Value},
+    value::objects::FunctionObject,
 };
 
 impl<'a> CompilationContext<'a> {
@@ -51,9 +51,8 @@ impl<'a> CompilationContext<'a> {
         self.block()?;
 
         let function_object = self.end_compiler()?;
-        let value: Value = function_object.into();
 
-        let constant = self.make_constant(value)?;
+        let constant = self.make_constant(function_object)?;
         self.emit_bytes(OpCode::OpConstant as u8, constant)
     }
 

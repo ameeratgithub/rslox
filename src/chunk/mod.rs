@@ -67,7 +67,7 @@ pub enum OpCode {
     /// Reads name of the variable from bytecode, gets value from the stack, and insert variable name and new value into `globals`.
     /// Takes 2 bytes: 1 for OpCode, 1 is the position of the variable in the constant pool.
     OpSetGlobal = 18,
-    
+
     OpGetLocal = 19,
     OpSetLocal = 20,
     OpJumpIfFalse = 21,
@@ -122,6 +122,12 @@ pub struct Chunk {
     pub constants: Vec<Value>,
     /// line number of code byte being written
     pub lines: Vec<i32>,
+}
+
+impl Default for Chunk {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 /// Implements functions for `Chunk`

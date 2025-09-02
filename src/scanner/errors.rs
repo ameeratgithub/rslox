@@ -12,14 +12,10 @@ impl std::fmt::Display for ScannerError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             ScannerError::UnexpectedCharacter { line, character } => {
-                write!(
-                    f,
-                    "[line {}] Error: Unexpected character '{}'",
-                    line, character
-                )
+                write!(f, "[line {line}] Error: Unexpected character '{character}'",)
             }
             ScannerError::UnterminatedString { line } => {
-                write!(f, "[line {}] Error: Unterminated string.", line)
+                write!(f, "[line {line}] Error: Unterminated string.")
             }
         }
     }

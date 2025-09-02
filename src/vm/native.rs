@@ -20,7 +20,7 @@ pub(super) fn clock_native(_arg_count: u8, _values: Vec<Value>) -> Value {
 }
 
 pub(super) fn println(_arg_count: u8, values: Vec<Value>) -> Value {
-    if values.len() > 0 {
+    if !values.is_empty() {
         println!("{}", values[0]);
     } else {
         println!();

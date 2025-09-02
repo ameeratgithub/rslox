@@ -1,5 +1,7 @@
 use crate::scanner::{
-    errors::ScannerError, token::{Token, TokenType}, Scanner
+    Scanner,
+    errors::ScannerError,
+    token::{Token, TokenType},
 };
 
 /// Collection of errors related to Parser
@@ -14,10 +16,10 @@ impl std::fmt::Display for ParserError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::ScannerError(error) => {
-                write!(f, "{}", error)
+                write!(f, "{error}")
             }
             Self::TokenError(error) => {
-                write!(f, "{}", error)
+                write!(f, "{error}")
             }
         }
     }
@@ -49,23 +51,17 @@ impl<'a> Parser<'a> {
         // can't use `self.current.take()` to replace value of `self.current` by `None`
         self.previous = self.current.clone();
 
-        // If token is alright, loop breaks, because it scans on demand
-        // If there's an error scanning token, it continues and display errors.
-        loop {
-            match self.scanner.scan_token() {
-                // Token is valid, updated the current token
-                Ok(token) => {
-                    self.current = Some(token);
-                    break;
-                }
-                Err(e) => {
-                    // Return error with proper information
-                    return Err(self.error_at_current(&format!("{}", e)));
-                }
+        match self.scanner.scan_token() {
+            // Token is valid, updated the current token
+            Ok(token) => {
+                self.current = Some(token);
+                Ok(())
+            }
+            Err(e) => {
+                // Return error with proper information
+                Err(self.error_at_current(&format!("{e}")))
             }
         }
-
-        Ok(())
     }
 
     /// Utility function to conditionaly consume token if it matches with desired
@@ -88,13 +84,13 @@ impl<'a> Parser<'a> {
     /// This returns error for previous token
     pub fn error_at_previous(&self, message: &str) -> ParserError {
         // Safe to unwrap `previous` because value is present
-        self.construct_error(&self.previous.as_ref().unwrap(), message)
+        self.construct_error(self.previous.as_ref().unwrap(), message)
     }
 
     /// This returns error for current token
     pub fn error_at_current(&self, message: &str) -> ParserError {
         // Safe to unwrap `current` because value is present.
-        self.construct_error(&self.current.as_ref().unwrap(), message)
+        self.construct_error(self.current.as_ref().unwrap(), message)
     }
 
     /// This method is important because it formats error nicely with line numbers
@@ -111,11 +107,11 @@ impl<'a> Parser<'a> {
             // todo! revisit if we really need this token type
             // C implementation is different and that's not how we handle errors in Rust
         } else {
-            // Gets invalid/problematic token and append to the error message 
-            err_msg.push_str(&format!(" at '{}'", token.as_str(&self.scanner.source)));
+            // Gets invalid/problematic token and append to the error message
+            err_msg.push_str(&format!(" at '{}'", token.as_str(self.scanner.source)));
         }
         // Push the custom message at the end
-        err_msg.push_str(&format!(": {}\n", message));
+        err_msg.push_str(&format!(": {message}\n"));
         // Return token error with formatted message
         ParserError::TokenError(err_msg)
     }
