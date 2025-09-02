@@ -71,7 +71,10 @@ print getGradeFromMarks(84) + "\n";
 ```
 
 ### Native Functions
-**Rslox** also support native functions, which are pretty much easier to add. Currently only one function is supported, which is `clock()`. `clock()` returns time in seconds as 64 bit floating point number. You can measure performance of the code by using this function. Following example calculates Fibonacci number and also measures how long does it take.
+**Rslox** also support native functions, which are pretty much easier to add. Currently two native functions are supported, which are `clock()` and `println()`. 
+
+#### `clock()`
+`clock()` returns time in seconds as 64 bit floating point number. You can measure performance of the code by using this function. Following example calculates Fibonacci number and also measures how long does it take.
 
 ```javascript
 fun fib(n) {
@@ -87,3 +90,29 @@ print "Time in seconds: " + end + "\n";
 ```
 
 Example above can take over a minute, depending on system specifications. It's not a great way to calculate Fibonacci numbers, but this example tests the language strength by pushing its limits. 
+
+#### `println()`
+This is a utility function which is similar to print statement, but appends a new line character, '\n', at the end. 
+
+```javascript
+println("Well, Hellooo...");
+```
+
+If no value is passed, it just prints a new line. Please note that, passing functions directly is not supported right now, and will require more work. So instead of doing something like
+
+```javascript
+fun getName(){
+    return "Your Name";
+}
+// This will cause panic because stack is corrupted
+println(getName());
+```
+
+You can store the result in a variable and then pass the result to `println()`, like this:
+```javascript
+fun getName(){
+    return "Your Name";
+}
+var name = getName();
+println(name);
+```

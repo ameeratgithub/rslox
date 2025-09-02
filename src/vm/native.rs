@@ -18,3 +18,12 @@ pub(super) fn clock_native(_arg_count: u8, _values: Vec<Value>) -> Value {
     let duration = now.duration_since(UNIX_EPOCH).expect("Time went backwards");
     duration.as_secs_f64().into()
 }
+
+pub(super) fn println(_arg_count: u8, values: Vec<Value>) -> Value {
+    if values.len() > 0 {
+        println!("{}", values[0]);
+    } else {
+        println!();
+    }
+    Value::new_nil()
+}

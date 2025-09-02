@@ -4,8 +4,8 @@ fun fib(n) {
 }
 
 var start = clock();
-print fib(35) + "\n";
+println(fib(35));
 
 var end = clock() - start;
 // May take more than 1 minute
-print "Time in seconds: " + end + "\n";
+println("Time in seconds: " + end);

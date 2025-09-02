@@ -14,6 +14,9 @@ fun getGradeFromMarks(marks){
     return grade;
 }
 
-print getGradeFromMarks(90)+"\n";
-print getGradeFromMarks(85)+"\n";
-print getGradeFromMarks(84)+"\n";
+var grades = getGradeFromMarks(90);
+println(grades);
+grades = getGradeFromMarks(85);
+println(grades);
+grades = getGradeFromMarks(84);
+println(grades);
