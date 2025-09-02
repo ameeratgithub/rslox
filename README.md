@@ -1,5 +1,5 @@
 # Introduction
-This is a Rust implementation of *Lox* language explained by *Robert Nystorm* on [Crafting Interpreters](https://craftinginterpreters.com/). It's a compiled language, where compiler is responsible for generating byte code from source code and a virtual machine is responsible for executing that byte code. 
+**Rslox** is the Rust implementation of *Lox*  programming language explained by *Robert Nystorm* on [Crafting Interpreters](https://craftinginterpreters.com/). It's a compiled language, where compiler is responsible for generating byte code from source code and a virtual machine is responsible for executing that byte code. 
 
 ## Getting Started
 To get started, you need to download the software from the release page.
@@ -54,20 +54,20 @@ This language supports a lot of features like many functional programming langua
 Details about language syntax are provided in `docs` directory, present in the repo's root directory. Refer to the following links if you want to learn how to use language syntax.
 
 - [Data Types](https://github.com/ameeratgithub/rslox/blob/main/docs/data_types.md)
-- [Variables] (https://github.com/ameeratgithub/rslox/blob/main/docs/variables.md)
-- [Expressions] (https://github.com/ameeratgithub/rslox/blob/main/docs/expressions.md)
+- [Variables](https://github.com/ameeratgithub/rslox/blob/main/docs/variables.md)
+- [Expressions](https://github.com/ameeratgithub/rslox/blob/main/docs/expressions.md)
 - [Control Flow](https://github.com/ameeratgithub/rslox/blob/main/docs/control_flow.md)
-- [Functions] (https://github.com/ameeratgithub/rslox/blob/main/docs/functions.md)
+- [Functions](https://github.com/ameeratgithub/rslox/blob/main/docs/functions.md)
 - [All Keywords](https://github.com/ameeratgithub/rslox/blob/main/docs/keywords.md)
 
 ### Roadmap
 Following features are planned to be added in upcoming weeks.
 
-1. Closures [deadline 15-09-2025]
-2. Sophisticated Garbage Collector [deadline 25-09-2025]
-3. Classes [deadline 05-10-2025]
-4. Inheritance [deadline 15-10-2025]
-5. Optimization [deadline 25-10-2025]
+1. Closures *[15-09-2025]*
+2. Sophisticated Garbage Collector *[25-09-2025]*
+3. Classes *[05-10-2025]*
+4. Inheritance *[15-10-2025]*
+5. Optimization *[25-10-2025]*
 
 Other than these features, I plan to fix bugs and add utility features/functions for better experience. 
 
